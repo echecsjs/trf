@@ -1,0 +1,73 @@
+{
+  "author": "Adrian de la Rosa <adrian@delarosab.me>",
+  "bugs": {
+    "url": "https://github.com/mormubis/trf/issues"
+  },
+  "description": "FIDE Tournament Report File (TRF) parser.",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "@vitest/eslint-plugin": "^1.6.12",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-unicorn": "^63.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
+    "typedoc": "^0.28.17",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "/dist/",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "homepage": "https://github.com/mormubis/trf#readme",
+  "keywords": [
+    "chess",
+    "fide",
+    "parser",
+    "tournament",
+    "trf"
+  ],
+  "license": "MIT",
+  "main": "dist/index.js",
+  "name": "@echecs/trf",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mormubis/trf.git"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "docs": "typedoc",
+    "format": "pnpm run format:ci --write",
+    "format:ci": "prettier -l \"**/*.+(css|js|json|jsx|md|mjs|mts|ts|tsx|yml|yaml)\"",
+    "lint": "pnpm run lint:style && pnpm run lint:types",
+    "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
+    "lint:style": "eslint \"src/**/*.{ts,tsx}\" \"*.mjs\" --fix",
+    "lint:types": "tsc --noEmit --project tsconfig.json",
+    "prepare": "pnpm run build",
+    "test": "vitest run",
+    "test:coverage": "pnpm run test --coverage",
+    "test:watch": "pnpm run test --watch"
+  },
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "version": "0.1.0"
+}
