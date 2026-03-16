@@ -209,3 +209,48 @@ describe('parse — issue_7 fixture', () => {
     expect(parse(fixture('issue_7'))?.players[0]?.points).toBe(10.5);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sex and title parsing
+// ---------------------------------------------------------------------------
+describe('parse — sex and title fields', () => {
+  it('parses sex field', () => {
+    const line = '001    1 m    Test Name                        2000                             1.0    1';
+    const result = parse(`012 T\nXXR 1\n${line}\n`);
+    expect(result?.players[0]?.sex).toBe('m');
+  });
+
+  it('parses title field', () => {
+    const line = '001    1  GM  Test Name                        2000                             1.0    1';
+    const result = parse(`012 T\nXXR 1\n${line}\n`);
+    expect(result?.players[0]?.title).toBe('GM');
+  });
+
+  it('ignores unknown title', () => {
+    const line = '001    1  XX  Test Name                        2000                             1.0    1';
+    const result = parse(`012 T\nXXR 1\n${line}\n`);
+    expect(result?.players[0]?.title).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXR missing
+// ---------------------------------------------------------------------------
+describe('parse — XXR tag', () => {
+  it('returns rounds 0 when XXR tag is absent', () => {
+    expect(parse('012 T\n')?.rounds).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round number assignment
+// ---------------------------------------------------------------------------
+describe('parse — round number assignment', () => {
+  it('assigns correct round numbers to results', () => {
+    const result = parse(fixture('dutch_2025_C5'));
+    const p1 = result?.players[0];
+    // P1: R1 as white vs P4, R2 as black vs P2
+    expect(p1?.results[0]?.round).toBe(1);
+    expect(p1?.results[1]?.round).toBe(2);
+  });
+});

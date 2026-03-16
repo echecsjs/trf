@@ -20,6 +20,8 @@ import type {
 const ROUND_RESULTS_OFFSET = 91;
 const ROUND_ENTRY_LENGTH = 10;
 
+// Tags 062–122 and XXC are recognised (no unknown-tag warning) but their
+// values are not currently used — they are silenced intentionally.
 const KNOWN_HEADER_TAGS = new Set([
   '001',
   '012',
@@ -68,10 +70,12 @@ const VALID_TITLES = new Set<Title>([
 // ---------------------------------------------------------------------------
 
 function makeError(message: string): ParseError {
+  // TODO: compute accurate column and offset from line/content position
   return { column: 1, line: 1, message, offset: 0 };
 }
 
 function makeWarning(message: string, line: number): ParseWarning {
+  // TODO: compute accurate column and offset from line/content position
   return { column: 1, line, message, offset: 0 };
 }
 
@@ -122,6 +126,7 @@ function parsePlayerLine(
   const birthDate = birthDateRaw.length > 0 ? birthDateRaw : undefined;
 
   const points = Number(line.slice(80, 84).trim()) || 0;
+  // rank defaults to 0 when blank (required field with no optional counterpart)
   const rank = Number(line.slice(84, 89).trim()) || 0;
 
   const results: RoundResult[] = [];
@@ -160,7 +165,17 @@ function parsePlayerLine(
       continue;
     }
 
-    const color = colorRaw === 'w' ? ('w' as const) : ('b' as const);
+    if (colorRaw !== 'w' && colorRaw !== 'b' && colorRaw !== '-') {
+      onWarning?.(
+        makeWarning(
+          `Invalid color code "${colorRaw}" in round ${Math.floor(index / ROUND_ENTRY_LENGTH) + 1}`,
+          lineNumber,
+        ),
+      );
+      continue;
+    }
+    // '-' is the TRF marker for byes (no color assigned); treat as 'b' for storage
+    const color: 'b' | 'w' = colorRaw === 'w' ? 'w' : 'b';
     // eslint-disable-next-line unicorn/no-null
     const opponentId = opponentRaw === '0000' ? null : Number(opponentRaw);
     const round = Math.floor(index / ROUND_ENTRY_LENGTH) + 1;
@@ -190,6 +205,7 @@ function parsePlayerLine(
 
 function detectVersion(): Version {
   // TRF26 heuristics deferred — all content treated as TRF16 for now
+  // TODO: detect TRF26 from content once the spec stabilises
   return 'TRF16';
 }
 
