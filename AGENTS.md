@@ -64,7 +64,7 @@ Column layout of a `001` player line (0-indexed):
 - 9:     sex (`m`/`f`)
 - 10–13: FIDE title
 - 15–46: player name
-- 48–52: FIDE rating
+- 48–51: FIDE rating
 - 53–55: federation
 - 57–68: FIDE player ID
 - 70–79: date of birth
@@ -74,6 +74,9 @@ Column layout of a `001` player line (0-indexed):
 
 Header tag prefixes: `012` name, `022` city, `032` federation, `042` start date,
 `052` end date, `092` chief arbiter, `112` time control, `XXR` rounds.
+
+`XXR` stores the total planned round count as a plain integer after the tag prefix,
+e.g. `XXR 9`. All other `NNN`-style tags store free-form text after a space.
 
 Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 `F` full-point bye, `H` half-point bye, `U` unplayed, `Z` zero-point bye.
@@ -104,3 +107,4 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 
 Published as `@echecs/trf`. GitHub Actions auto-publishes on `version` bump in
 `package.json` on `main`. Always update `CHANGELOG.md` with version bumps.
+Bump patch for fixes, minor for new features, major for breaking changes.
