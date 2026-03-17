@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.0.0 — 2026-03-17
+
+### Breaking Changes
+
+- `parse` is no longer the default export. Update imports:
+  ```ts
+  // before
+  import parse from '@echecs/trf';
+  // after
+  import { parse } from '@echecs/trf';
+  ```
+
+### Added
+
+- `stringify(tournament: Tournament): string` — serializes a `Tournament` object
+  to TRF16 format. The inverse of `parse()`.
+
+### Changed
+
+- `src/index.ts` is now a re-export barrel; logic lives in `src/parse.ts` and
+  `src/stringify.ts`.
+
 ## 1.0.0 — 2026-03-17
 
 First stable release. All known issues resolved:
