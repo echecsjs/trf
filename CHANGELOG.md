@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-03-17
+
+- Add tests for all optional player fields: `sex`, `title`, `fideId`,
+  `birthDate`, `federation`
+- Verify correct column offsets for all fields with a fully-populated test line
+- Test blank field → `undefined` and invalid values → `undefined` for sex/title
+
 ## 0.3.0 — 2026-03-17
 
 - `ParseError` and `ParseWarning` now report accurate `line`, `column`, and

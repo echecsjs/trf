@@ -133,6 +133,111 @@ describe('parse — player fields', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Optional player fields (sex, title, fideId, birthDate, federation)
+// ---------------------------------------------------------------------------
+describe('parse — optional player fields', () => {
+  // A fully-populated 001 line with all optional fields.
+  // Column layout (0-indexed) verified against TRF16 spec:
+  //  9     sex          → 'm'
+  //  10-13 title        → 'GM  '
+  //  14-46 name         → 'Kasparov, Garry'
+  //  48-51 rating       → 2851
+  //  53-55 federation   → 'RUS'
+  //  57-68 FIDE ID      → '4100018363'
+  //  70-79 birth date   → '1963-04-13'
+  const FULL_LINE =
+    '001    1 mGM  Kasparov, Garry                   2851 RUS 4100018363   1963-04-13 8.5    1      2 w 1';
+
+  function parseFullLine() {
+    return parse(`012 T\nXXR 1\n${FULL_LINE}\n`)?.players[0];
+  }
+
+  it('parses sex field', () => {
+    expect(parseFullLine()?.sex).toBe('m');
+  });
+
+  it('parses title field', () => {
+    expect(parseFullLine()?.title).toBe('GM');
+  });
+
+  it('parses name field', () => {
+    expect(parseFullLine()?.name).toBe('Kasparov, Garry');
+  });
+
+  it('parses federation field', () => {
+    expect(parseFullLine()?.federation).toBe('RUS');
+  });
+
+  it('parses fideId field', () => {
+    expect(parseFullLine()?.fideId).toBe('4100018363');
+  });
+
+  it('parses birthDate field', () => {
+    expect(parseFullLine()?.birthDate).toBe('1963-04-13');
+  });
+
+  it('returns undefined sex for blank field', () => {
+    const line =
+      '001    1      Test0001 Player0001               2720                             2.0    1';
+    expect(parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.sex).toBeUndefined();
+  });
+
+  it('returns undefined title for blank field', () => {
+    const line =
+      '001    1      Test0001 Player0001               2720                             2.0    1';
+    expect(parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.title).toBeUndefined();
+  });
+
+  it('returns undefined federation for blank field', () => {
+    const line =
+      '001    1      Test0001 Player0001               2720                             2.0    1';
+    expect(
+      parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.federation,
+    ).toBeUndefined();
+  });
+
+  it('returns undefined fideId for blank field', () => {
+    const line =
+      '001    1      Test0001 Player0001               2720                             2.0    1';
+    expect(
+      parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.fideId,
+    ).toBeUndefined();
+  });
+
+  it('returns undefined birthDate for blank field', () => {
+    const line =
+      '001    1      Test0001 Player0001               2720                             2.0    1';
+    expect(
+      parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.birthDate,
+    ).toBeUndefined();
+  });
+
+  it('ignores unknown sex code', () => {
+    // Replace sex byte ('m') with 'x' — not a valid sex code
+    const line = FULL_LINE.slice(0, 9) + 'x' + FULL_LINE.slice(10);
+    expect(parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.sex).toBeUndefined();
+  });
+
+  it('ignores unknown title', () => {
+    // Replace title ('GM  ') with 'XX  '
+    const line = FULL_LINE.slice(0, 10) + 'XX  ' + FULL_LINE.slice(14);
+    expect(parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.title).toBeUndefined();
+  });
+
+  it('all valid titles are accepted', () => {
+    const titles = ['CM', 'FM', 'GM', 'IM', 'WCM', 'WFM', 'WGM', 'WIM'];
+    for (const title of titles) {
+      const padded = title.padEnd(4);
+      const line = FULL_LINE.slice(0, 10) + padded + FULL_LINE.slice(14);
+      expect(
+        parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.title,
+        `expected title ${title} to be parsed`,
+      ).toBe(title);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Round result parsing
 // ---------------------------------------------------------------------------
 describe('parse — round results', () => {
