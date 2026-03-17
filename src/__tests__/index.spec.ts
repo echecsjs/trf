@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import parse from '../index.js';
+import { parse } from '../index.js';
 
 import type { ParseError, ParseWarning } from '../types.js';
 
