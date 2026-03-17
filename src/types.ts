@@ -25,6 +25,10 @@ interface ParseWarning {
   offset: number;
 }
 
+interface StringifyOptions {
+  onWarning?: (warning: ParseWarning) => void;
+}
+
 interface Player {
   birthDate?: string;
   federation?: string;
@@ -67,6 +71,7 @@ export type {
   ResultCode,
   RoundResult,
   Sex,
+  StringifyOptions,
   Title,
   Tournament,
   Version,

@@ -9,6 +9,7 @@ export type {
   ResultCode,
   RoundResult,
   Sex,
+  StringifyOptions,
   Title,
   Tournament,
   Version,
