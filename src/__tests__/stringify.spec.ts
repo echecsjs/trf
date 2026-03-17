@@ -1,10 +1,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { parse, stringify } from '../index.js';
 
-import type { Player, Tournament } from '../types.js';
+import type {
+  ParseWarning,
+  Player,
+  StringifyOptions,
+  Tournament,
+} from '../types.js';
 
 function minimal(overrides: Partial<Tournament> = {}): Tournament {
   return { players: [], rounds: 0, version: 'TRF16', ...overrides };
@@ -233,6 +238,97 @@ describe('stringify — round results', () => {
       .split('\n')
       .find((l) => l.startsWith('001'))!;
     expect(line.length).toBe(89);
+  });
+});
+
+describe('stringify — onWarning', () => {
+  it('accepts a StringifyOptions object without throwing', () => {
+    const options: StringifyOptions = { onWarning: vi.fn() };
+    expect(() => stringify(minimal(), options)).not.toThrow();
+  });
+
+  it('calls onWarning when name exceeds 33 characters', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    stringify(minimal({ players: [player] }), { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+  });
+
+  it('does not call onWarning when name is exactly 33 characters', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(33) });
+    stringify(minimal({ players: [player] }), { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+
+  it('calls onWarning when federation exceeds 3 characters', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ federation: 'FRAN' });
+    stringify(minimal({ players: [player] }), { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+  });
+
+  it('calls onWarning when fideId exceeds 12 characters', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ fideId: '1234567890123' });
+    stringify(minimal({ players: [player] }), { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+  });
+
+  it('calls onWarning when birthDate exceeds 10 characters', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ birthDate: '1963-04-13X' });
+    stringify(minimal({ players: [player] }), { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+  });
+
+  it('still produces truncated output when onWarning fires', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    const result = stringify(minimal({ players: [player] }), { onWarning });
+    const line = result.split('\n').find((l) => l.startsWith('001'))!;
+    expect(line.slice(14, 47)).toBe('A'.repeat(33));
+  });
+
+  it('warning message includes field name and limit', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    stringify(minimal({ players: [player] }), { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.message).toMatch(/name/i);
+    expect(warn.message).toMatch(/33/);
+  });
+
+  it('warning line equals 1-based player index', () => {
+    const onWarning = vi.fn();
+    const players = [
+      minimalPlayer({ pairingNumber: 1 }),
+      minimalPlayer({ pairingNumber: 2, name: 'A'.repeat(34) }),
+    ];
+    stringify(minimal({ players }), { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.line).toBe(2);
+  });
+
+  it('warning column equals 1-based column offset of the field', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    stringify(minimal({ players: [player] }), { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.column).toBe(15); // COL_NAME + 1 = 14 + 1
+  });
+
+  it('warning offset is 0', () => {
+    const onWarning = vi.fn();
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    stringify(minimal({ players: [player] }), { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.offset).toBe(0);
+  });
+
+  it('does not warn when options is omitted', () => {
+    const player = minimalPlayer({ name: 'A'.repeat(34) });
+    expect(() => stringify(minimal({ players: [player] }))).not.toThrow();
   });
 });
 

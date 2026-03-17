@@ -13,7 +13,7 @@ import {
   ROUND_RESULTS_OFFSET,
 } from './columns.js';
 
-import type { Player, Tournament } from './types.js';
+import type { Player, StringifyOptions, Tournament } from './types.js';
 
 function pad(value: string, length: number, align: 'left' | 'right'): string {
   return align === 'right' ? value.padStart(length) : value.padEnd(length);
@@ -25,7 +25,27 @@ function writeAt(buf: string[], col: number, value: string): void {
   }
 }
 
-function stringifyPlayerLine(player: Player): string {
+function stringifyPlayerLine(
+  player: Player,
+  playerIndex: number,
+  onWarning?: StringifyOptions['onWarning'],
+): string {
+  function warnIfTruncated(
+    value: string,
+    field: string,
+    max: number,
+    col: number,
+  ): void {
+    if (value.length > max) {
+      onWarning?.({
+        column: col + 1,
+        line: playerIndex + 1,
+        message: `Player ${playerIndex + 1}: ${field} exceeds ${max} characters and will be truncated`,
+        offset: 0,
+      });
+    }
+  }
+
   // Build a character buffer pre-filled with spaces up to rank column end
   const buf: string[] = Array.from({ length: COL_RANK + 5 }, () => ' ');
 
@@ -52,6 +72,7 @@ function stringifyPlayerLine(player: Player): string {
   }
 
   // Name — left-aligned in 33 chars at col 14
+  warnIfTruncated(player.name, 'name', 33, COL_NAME);
   writeAt(buf, COL_NAME, pad(player.name.slice(0, 33), 33, 'left'));
 
   // Rating — right-aligned in 4 chars at col 48
@@ -61,16 +82,19 @@ function stringifyPlayerLine(player: Player): string {
 
   // Federation — left-aligned in 3 chars at col 53
   if (player.federation !== undefined) {
+    warnIfTruncated(player.federation, 'federation', 3, COL_FEDERATION);
     writeAt(buf, COL_FEDERATION, pad(player.federation.slice(0, 3), 3, 'left'));
   }
 
   // FIDE ID — left-aligned in 12 chars at col 57
   if (player.fideId !== undefined) {
+    warnIfTruncated(player.fideId, 'fideId', 12, COL_FIDE_ID);
     writeAt(buf, COL_FIDE_ID, pad(player.fideId.slice(0, 12), 12, 'left'));
   }
 
   // Birth date — left-aligned in 10 chars at col 70
   if (player.birthDate !== undefined) {
+    warnIfTruncated(player.birthDate, 'birthDate', 10, COL_BIRTH_DATE);
     writeAt(
       buf,
       COL_BIRTH_DATE,
@@ -94,6 +118,7 @@ function stringifyPlayerLine(player: Player): string {
       while (buf.length < slot + ROUND_ENTRY_LENGTH) {
         buf.push(' ');
       }
+
       const opponentString =
         result.opponentId === null
           ? '0000'
@@ -110,7 +135,10 @@ function stringifyPlayerLine(player: Player): string {
   return buf.join('').trimEnd();
 }
 
-export default function stringify(tournament: Tournament): string {
+export default function stringify(
+  tournament: Tournament,
+  options?: StringifyOptions,
+): string {
   const lines: string[] = [];
 
   if (tournament.name !== undefined) {
@@ -138,8 +166,8 @@ export default function stringify(tournament: Tournament): string {
     lines.push(`XXR ${tournament.rounds}`);
   }
 
-  for (const player of tournament.players) {
-    lines.push(stringifyPlayerLine(player));
+  for (const [index, player] of tournament.players.entries()) {
+    lines.push(stringifyPlayerLine(player, index, options?.onWarning));
   }
 
   return lines.join('\n');
