@@ -50,7 +50,7 @@ const VALID_RESULT_CODES = new Set<ResultCode>([
   'Z',
 ]);
 
-const VALID_SEXES = new Set<Sex>(['f', 'm']);
+const VALID_SEXES = new Set<Sex>(['m', 'w']);
 
 const VALID_TITLES = new Set<Title>([
   'CM',
@@ -61,6 +61,15 @@ const VALID_TITLES = new Set<Title>([
   'WFM',
   'WGM',
   'WIM',
+]);
+
+// JaVaFo (pre-TRF16) used single-letter lowercase title codes.
+// Map them to standard TRF16 Title values for backward compatibility.
+const JAVAFO_TITLE_MAP = new Map<string, Title>([
+  ['f', 'FM'],
+  ['g', 'GM'],
+  ['m', 'IM'],
+  ['w', 'WIM'],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -134,7 +143,7 @@ function parsePlayerLine(
   const titleRaw = line.slice(COL_TITLE, COL_NAME).trim();
   const title = VALID_TITLES.has(titleRaw as Title)
     ? (titleRaw as Title)
-    : undefined;
+    : JAVAFO_TITLE_MAP.get(titleRaw);
 
   const name = line.slice(COL_NAME, COL_RATING - 1).trim();
   const rating = parseRating(

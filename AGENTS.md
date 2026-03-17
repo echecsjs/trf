@@ -64,7 +64,7 @@ Column layout of a `001` player line (0-indexed):
 
 - 0–2: record type (`001`)
 - 4–7: pairing number
-- 9: sex (`m`/`f`)
+- 9: sex (`m`/`w`)
 - 10–13: FIDE title
 - 15–46: player name
 - 48–51: FIDE rating

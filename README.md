@@ -150,7 +150,7 @@ interface Player {
   rank: number;
   rating?: number;
   results: RoundResult[];
-  sex?: Sex; // 'f' | 'm'
+  sex?: Sex; // 'm' | 'w'
   title?: Title; // 'GM' | 'IM' | 'FM' | ...
 }
 

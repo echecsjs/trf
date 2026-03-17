@@ -1,6 +1,6 @@
 type ResultCode = '+' | '-' | '0' | '1' | '=' | 'F' | 'H' | 'U' | 'Z';
 
-type Sex = 'f' | 'm';
+type Sex = 'm' | 'w';
 
 type Title = 'CM' | 'FM' | 'GM' | 'IM' | 'WCM' | 'WFM' | 'WGM' | 'WIM';
 

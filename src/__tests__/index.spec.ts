@@ -405,6 +405,171 @@ describe('parse — round number assignment', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Real-world fixture: JaVaFo TRFXSample2
+// Source: https://www.rrweb.org/javafo/aum/TRFXSample2.txt
+// JaVaFo documentation example (freely distributed). 52-player Spanish open,
+// 4 of 9 rounds played. Uses TRF16 result codes + JaVaFo single-letter titles.
+// ---------------------------------------------------------------------------
+describe('parse — javafo_sample2 fixture', () => {
+  it('does not return null', () => {
+    expect(parse(fixture('javafo_sample2'))).not.toBeNull();
+  });
+
+  it('parses tournament name', () => {
+    expect(parse(fixture('javafo_sample2'))?.name).toBe(
+      'XX Open Internacional de Gros',
+    );
+  });
+
+  it('parses city', () => {
+    expect(parse(fixture('javafo_sample2'))?.city).toBe('Donostia');
+  });
+
+  it('parses federation', () => {
+    expect(parse(fixture('javafo_sample2'))?.federation).toBe('ESP');
+  });
+
+  it('parses start date', () => {
+    expect(parse(fixture('javafo_sample2'))?.startDate).toBe('24/09/2010');
+  });
+
+  it('parses end date', () => {
+    expect(parse(fixture('javafo_sample2'))?.endDate).toBe('02/10/2010');
+  });
+
+  it('parses rounds from XXR tag', () => {
+    expect(parse(fixture('javafo_sample2'))?.rounds).toBe(9);
+  });
+
+  it('parses 52 players', () => {
+    expect(parse(fixture('javafo_sample2'))?.players).toHaveLength(52);
+  });
+
+  it('parses P1 name', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.name).toBe(
+      'Mirzoev Azer',
+    );
+  });
+
+  it('parses P1 rating', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.rating).toBe(2527);
+  });
+
+  it('parses P1 federation', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.federation).toBe(
+      'AZE',
+    );
+  });
+
+  it('parses P1 sex', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.sex).toBe('m');
+  });
+
+  it('maps JaVaFo title "g" to GM for P1', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.title).toBe('GM');
+  });
+
+  it('maps JaVaFo title "m" to IM for P2', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[1]?.title).toBe('IM');
+  });
+
+  it('maps JaVaFo title "f" to FM for P3', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[2]?.title).toBe('FM');
+  });
+
+  it('parses female player sex (P23)', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[22]?.sex).toBe('w');
+  });
+
+  it('parses P1 FIDE ID', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.fideId).toBe(
+      '13400304',
+    );
+  });
+
+  it('parses 4 round results for P1', () => {
+    expect(parse(fixture('javafo_sample2'))?.players[0]?.results).toHaveLength(
+      4,
+    );
+  });
+
+  it('parses Z-bye result code for P28 (withdrew)', () => {
+    // P28 (index 27) has Z-bye in all 5 recorded result slots
+    const p28 = parse(fixture('javafo_sample2'))?.players[27];
+    expect(p28?.results.every((r) => r.result === 'Z')).toBe(true);
+  });
+
+  it('parses H (half-point bye) result code', () => {
+    // P14 (index 13) has an H bye in round 3
+    const p14 = parse(fixture('javafo_sample2'))?.players[13];
+    const hBye = p14?.results.find((r) => r.result === 'H');
+    expect(hBye).toBeDefined();
+    expect(hBye?.opponentId).toBeNull();
+  });
+
+  it('parses U (unplayed) result code', () => {
+    // P48 (index 47) has a U entry in round 4
+    const p48 = parse(fixture('javafo_sample2'))?.players[47];
+    const unplayed = p48?.results.find((r) => r.result === 'U');
+    expect(unplayed).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Real-world fixture: GrandMommysCup TRF25 sample
+// Source: http://tec.fide.com/wp-content/uploads/2025/01/GrandMommysCup03_trf.txt
+// FIDE Technical Commission official sample (January 2025). 249 players,
+// 50 teams, 14 rounds. Exercises many TRF25-specific record types.
+// We only assert that parsing succeeds and basic counts are correct —
+// the TRF25-specific tags are unknown to our TRF16 parser and will emit warnings.
+// ---------------------------------------------------------------------------
+describe('parse — grandmommyscup fixture', () => {
+  it('does not return null', () => {
+    expect(parse(fixture('grandmommyscup'))).not.toBeNull();
+  });
+
+  it('parses tournament name', () => {
+    expect(parse(fixture('grandmommyscup'))?.name).toBe("Grandmommy's Cup");
+  });
+
+  it('parses 249 players from 001 lines', () => {
+    expect(parse(fixture('grandmommyscup'))?.players).toHaveLength(249);
+  });
+
+  it('parses rounds from 142 (mapped as chief arbiter — unknown tag gracefully ignored)', () => {
+    // The GrandMommysCup uses tag 142 for rounds instead of XXR.
+    // Our parser does not recognise 142 as a rounds tag — rounds will be 0.
+    // This is expected behaviour for TRF25-only tags.
+    expect(parse(fixture('grandmommyscup'))?.rounds).toBe(0);
+  });
+
+  it('parses P1 name', () => {
+    expect(parse(fixture('grandmommyscup'))?.players[0]?.name).toBe(
+      'Test0001 Player0001',
+    );
+  });
+
+  it('parses P1 rating', () => {
+    expect(parse(fixture('grandmommyscup'))?.players[0]?.rating).toBe(2586);
+  });
+
+  it('parses P1 federation', () => {
+    expect(parse(fixture('grandmommyscup'))?.players[0]?.federation).toBe(
+      'IND',
+    );
+  });
+
+  it('emits onWarning for unknown TRF25 tags but does not crash', () => {
+    const warnings: string[] = [];
+    parse(fixture('grandmommyscup'), {
+      onWarning: (w) => warnings.push(w.message),
+    });
+    // Many TRF25-specific tags will trigger warnings
+    expect(warnings.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ParseError / ParseWarning position accuracy
 // ---------------------------------------------------------------------------
 describe('parse — error position accuracy', () => {
