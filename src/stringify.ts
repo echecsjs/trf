@@ -63,9 +63,9 @@ function stringifyPlayerLine(player: Player): string {
     writeAt(buf, COL_FEDERATION, pad(player.federation.slice(0, 3), 3, 'left'));
   }
 
-  // FIDE ID — left-aligned in 11 chars at col 57
+  // FIDE ID — left-aligned in 12 chars at col 57
   if (player.fideId !== undefined) {
-    writeAt(buf, COL_FIDE_ID, pad(player.fideId.slice(0, 11), 11, 'left'));
+    writeAt(buf, COL_FIDE_ID, pad(player.fideId.slice(0, 12), 12, 'left'));
   }
 
   // Birth date — left-aligned in 10 chars at col 70

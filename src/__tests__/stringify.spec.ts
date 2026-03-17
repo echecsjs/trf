@@ -155,7 +155,7 @@ describe('stringify — player lines', () => {
     )
       .split('\n')
       .find((l) => l.startsWith('001'))!;
-    expect(line.slice(57, 68).trimEnd()).toBe('4100018363');
+    expect(line.slice(57, 69).trimEnd()).toBe('4100018363');
   });
 
   it('writes birthDate left-aligned in cols 70-79', () => {
