@@ -68,18 +68,34 @@ const VALID_TITLES = new Set<Title>([
 // ---------------------------------------------------------------------------
 
 function makeError(message: string): ParseError {
-  // TODO: compute accurate column and offset from line/content position
-  return { column: 1, line: 1, message, offset: 0 };
+  return { column: 0, line: 0, message, offset: 0 };
 }
 
-function makeWarning(message: string, line: number): ParseWarning {
-  // TODO: compute accurate column and offset from line/content position
-  return { column: 1, line, message, offset: 0 };
+function makeWarning(
+  message: string,
+  line: number,
+  column: number,
+  offset: number,
+): ParseWarning {
+  return { column, line, message, offset };
 }
+
+// Column offset of each field within a 001 line (0-indexed, 1-based column = offset + 1)
+const COL_PAIRING_NUMBER = 4;
+const COL_SEX = 9;
+const COL_TITLE = 10;
+const COL_NAME = 14;
+const COL_RATING = 48;
+const COL_FEDERATION = 53;
+const COL_FIDE_ID = 57;
+const COL_BIRTH_DATE = 70;
+const COL_POINTS = 80;
+const COL_RANK = 84;
 
 function parseRating(
   raw: string,
   lineNumber: number,
+  lineOffset: number,
   onWarning?: (w: ParseWarning) => void,
 ): number | undefined {
   const trimmed = raw.trim();
@@ -89,7 +105,14 @@ function parseRating(
 
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n <= 0) {
-    onWarning?.(makeWarning(`Malformed rating: "${trimmed}"`, lineNumber));
+    onWarning?.(
+      makeWarning(
+        `Malformed rating: "${trimmed}"`,
+        lineNumber,
+        COL_RATING + 1,
+        lineOffset + COL_RATING,
+      ),
+    );
     return undefined;
   }
 
@@ -99,33 +122,40 @@ function parseRating(
 function parsePlayerLine(
   line: string,
   lineNumber: number,
+  lineOffset: number,
   onWarning?: (w: ParseWarning) => void,
 ): Player {
-  const pairingNumber = Number(line.slice(4, 8).trim()) || 0;
+  const pairingNumber =
+    Number(line.slice(COL_PAIRING_NUMBER, COL_SEX).trim()) || 0;
 
-  const sexRaw = line.slice(9, 10).trim();
+  const sexRaw = line.slice(COL_SEX, COL_SEX + 1).trim();
   const sex = VALID_SEXES.has(sexRaw as Sex) ? (sexRaw as Sex) : undefined;
 
-  const titleRaw = line.slice(10, 14).trim();
+  const titleRaw = line.slice(COL_TITLE, COL_NAME).trim();
   const title = VALID_TITLES.has(titleRaw as Title)
     ? (titleRaw as Title)
     : undefined;
 
-  const name = line.slice(14, 47).trim();
-  const rating = parseRating(line.slice(48, 52), lineNumber, onWarning);
+  const name = line.slice(COL_NAME, COL_RATING - 1).trim();
+  const rating = parseRating(
+    line.slice(COL_RATING, COL_RATING + 4),
+    lineNumber,
+    lineOffset,
+    onWarning,
+  );
 
-  const federationRaw = line.slice(53, 56).trim();
+  const federationRaw = line.slice(COL_FEDERATION, COL_FEDERATION + 3).trim();
   const federation = federationRaw.length > 0 ? federationRaw : undefined;
 
-  const fideIdRaw = line.slice(57, 69).trim();
+  const fideIdRaw = line.slice(COL_FIDE_ID, COL_BIRTH_DATE - 1).trim();
   const fideId = fideIdRaw.length > 0 ? fideIdRaw : undefined;
 
-  const birthDateRaw = line.slice(70, 80).trim();
+  const birthDateRaw = line.slice(COL_BIRTH_DATE, COL_POINTS).trim();
   const birthDate = birthDateRaw.length > 0 ? birthDateRaw : undefined;
 
-  const points = Number(line.slice(80, 84).trim()) || 0;
+  const points = Number(line.slice(COL_POINTS, COL_POINTS + 4).trim()) || 0;
   // rank defaults to 0 when blank (required field with no optional counterpart)
-  const rank = Number(line.slice(84, 89).trim()) || 0;
+  const rank = Number(line.slice(COL_RANK, COL_RANK + 5).trim()) || 0;
 
   const results: RoundResult[] = [];
   const resultsSection = line.slice(ROUND_RESULTS_OFFSET);
@@ -155,11 +185,16 @@ function parsePlayerLine(
       continue;
     }
 
+    const entryOffset = lineOffset + ROUND_RESULTS_OFFSET + index;
+    const entryColumn = ROUND_RESULTS_OFFSET + index + 1;
+
     if (!VALID_RESULT_CODES.has(resultRaw as ResultCode)) {
       onWarning?.(
         makeWarning(
           `Unknown result code "${resultRaw}" in round ${Math.floor(index / ROUND_ENTRY_LENGTH) + 1}`,
           lineNumber,
+          entryColumn,
+          entryOffset,
         ),
       );
       continue;
@@ -170,6 +205,8 @@ function parsePlayerLine(
         makeWarning(
           `Invalid color code "${colorRaw}" in round ${Math.floor(index / ROUND_ENTRY_LENGTH) + 1}`,
           lineNumber,
+          entryColumn,
+          entryOffset,
         ),
       );
       continue;
@@ -235,6 +272,10 @@ export default function parse(
 
   const lines = content.split('\n');
 
+  // Track the byte offset of the start of each line within `content`.
+  // Used to report accurate `offset` values in ParseWarning/ParseError.
+  let lineOffset = 0;
+
   for (const [index, line] of lines.entries()) {
     const lineNumber = index + 1;
     const tag = line.slice(0, 3);
@@ -242,7 +283,7 @@ export default function parse(
     switch (tag) {
       case '001': {
         tournament.players.push(
-          parsePlayerLine(line, lineNumber, options?.onWarning),
+          parsePlayerLine(line, lineNumber, lineOffset, options?.onWarning),
         );
         break;
       }
@@ -280,12 +321,17 @@ export default function parse(
       }
       default: {
         if (!KNOWN_HEADER_TAGS.has(tag) && tag.trim().length > 0) {
-          options?.onWarning?.(makeWarning(`Unknown tag "${tag}"`, lineNumber));
+          options?.onWarning?.(
+            makeWarning(`Unknown tag "${tag}"`, lineNumber, 1, lineOffset),
+          );
         }
 
         break;
       }
     }
+
+    // +1 for the '\n' character that was stripped by split()
+    lineOffset += line.length + 1;
   }
 
   return tournament;

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import parse from '../index.js';
 
-import type { ParseError } from '../types.js';
+import type { ParseError, ParseWarning } from '../types.js';
 
 function fixture(name: string): string {
   return readFileSync(
@@ -296,5 +296,60 @@ describe('parse — round number assignment', () => {
     // P1: R1 as white vs P4, R2 as black vs P2
     expect(p1?.results[0]?.round).toBe(1);
     expect(p1?.results[1]?.round).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ParseError / ParseWarning position accuracy
+// ---------------------------------------------------------------------------
+describe('parse — error position accuracy', () => {
+  it('empty input error has line 0, column 0, offset 0', () => {
+    const onError = vi.fn<(error: ParseError) => void>();
+    parse('', { onError });
+    expect(onError).toHaveBeenCalledOnce();
+    const error = onError.mock.calls[0]?.[0];
+    expect(error?.line).toBe(0);
+    expect(error?.column).toBe(0);
+    expect(error?.offset).toBe(0);
+  });
+});
+
+describe('parse — warning position accuracy', () => {
+  it('unknown tag warning has accurate line number', () => {
+    // Line 1: "012 T\n" (6 chars), line 2: "XXR 1\n" (6 chars), line 3: "ZZZ unknown\n"
+    const onWarning = vi.fn();
+    parse('012 T\nXXR 1\nZZZ unknown\n', { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.line).toBe(3);
+    expect(warn.column).toBe(1);
+    // offset: "012 T\n" = 6, "XXR 1\n" = 6, total = 12
+    expect(warn.offset).toBe(12);
+  });
+
+  it('malformed rating warning has accurate line, column, and offset', () => {
+    // Line 1: "012 T\n" = 6 chars → lineOffset of line 2 = 6
+    // Line 2: "XXR 1\n" = 6 chars → lineOffset of line 3 = 12
+    // Line 3 is the 001 player line. COL_RATING = 48 (0-indexed), so column = 49, offset = 12 + 48 = 60
+    const onWarning = vi.fn();
+    const playerLine =
+      '001    1      Test Name                        XXXX                             1.0    1';
+    parse(`012 T\nXXR 1\n${playerLine}\n`, { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.line).toBe(3);
+    expect(warn.column).toBe(49); // COL_RATING + 1
+    expect(warn.offset).toBe(60); // 6 + 6 + 48
+  });
+
+  it('unknown result code warning has accurate line and column', () => {
+    // Round 1 result is the first entry in the results section at column 92 (1-indexed)
+    // (ROUND_RESULTS_OFFSET=91, index=0 → entryColumn = 91+0+1 = 92)
+    // Use a correctly-padded 001 line so the rating field (cols 48-51) is valid.
+    const onWarning = vi.fn();
+    const playerLine =
+      '001    1      Test0001 Player0001               2720                             2.0    1      2 w X';
+    parse(`012 T\nXXR 1\n${playerLine}\n`, { onWarning });
+    const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
+    expect(warn.line).toBe(3);
+    expect(warn.column).toBe(92); // ROUND_RESULTS_OFFSET + 1
   });
 });
