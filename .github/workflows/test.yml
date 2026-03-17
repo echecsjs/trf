@@ -24,8 +24,8 @@ jobs:
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
-          cache: "pnpm"
-          node-version: "node"
+          cache: 'pnpm'
+          node-version: 'node'
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile

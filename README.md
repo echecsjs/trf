@@ -22,7 +22,7 @@ npm install @echecs/trf
 ## Quick Start
 
 ```typescript
-import parse from "@echecs/trf";
+import parse from '@echecs/trf';
 
 const tournament = parse(trfString);
 
@@ -38,7 +38,7 @@ console.log(tournament.players[0].results); // [{ round: 1, color: 'w', opponent
 ### `parse()`
 
 ```typescript
-import parse from "@echecs/trf";
+import parse from '@echecs/trf';
 
 export default function parse(
   input: string,
@@ -55,7 +55,7 @@ cannot be parsed.
   and continue parsing.
 
 ```typescript
-import parse from "@echecs/trf";
+import parse from '@echecs/trf';
 
 const tournament = parse(trfString, {
   onError: (err) => console.error(`Parse failed: ${err.message}`),
@@ -86,11 +86,11 @@ tournament as input to the Swiss pairing functions, adapt the types in your own
 code:
 
 ```typescript
-import parse from "@echecs/trf";
-import { dutch } from "@echecs/swiss";
+import parse from '@echecs/trf';
+import { dutch } from '@echecs/swiss';
 
-import type { Tournament } from "@echecs/trf";
-import type { Game, Player } from "@echecs/swiss";
+import type { Tournament } from '@echecs/trf';
+import type { Game, Player } from '@echecs/swiss';
 
 function toPlayers(tournament: Tournament): Player[] {
   return tournament.players.map((p) => ({
@@ -103,11 +103,11 @@ function toGames(tournament: Tournament): Game[] {
   const games: Game[] = [];
   for (const player of tournament.players) {
     for (const result of player.results) {
-      if (result.color !== "w" || result.opponentId === null) continue;
+      if (result.color !== 'w' || result.opponentId === null) continue;
       let score: 0 | 0.5 | 1;
-      if (result.result === "1" || result.result === "+") score = 1;
-      else if (result.result === "0" || result.result === "-") score = 0;
-      else if (result.result === "=") score = 0.5;
+      if (result.result === '1' || result.result === '+') score = 1;
+      else if (result.result === '0' || result.result === '-') score = 0;
+      else if (result.result === '=') score = 0.5;
       else continue;
       games.push({
         blackId: String(result.opponentId),
@@ -155,7 +155,7 @@ interface Player {
 }
 
 interface RoundResult {
-  color: "b" | "w";
+  color: 'b' | 'w';
   opponentId: number | null; // null for byes
   result: ResultCode;
   round: number;

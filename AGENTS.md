@@ -10,9 +10,10 @@ TypeScript settings, formatting, naming, testing, ESLint rules).
 
 ## Project Overview
 
-Pure parser library, no runtime dependencies. Default export: `parse(input,
-options?) → Tournament | null`. Never throws; returns `null` on failure and calls
-`options.onError`. Recoverable issues emit `options.onWarning`.
+Pure parser library, no runtime dependencies. Default export:
+`parse(input, options?) → Tournament | null`. Never throws; returns `null` on
+failure and calls `options.onError`. Recoverable issues emit
+`options.onWarning`.
 
 Mirrors the API style of `@echecs/pgn`.
 
@@ -56,7 +57,8 @@ pnpm lint && pnpm test && pnpm build
 
 ## TRF Format Reference
 
-TRF (Tournament Report File) is the FIDE interchange format for pairing software.
+TRF (Tournament Report File) is the FIDE interchange format for pairing
+software.
 
 Column layout of a `001` player line (0-indexed):
 
@@ -76,8 +78,9 @@ Column layout of a `001` player line (0-indexed):
 Header tag prefixes: `012` name, `022` city, `032` federation, `042` start date,
 `052` end date, `092` chief arbiter, `112` time control, `XXR` rounds.
 
-`XXR` stores the total planned round count as a plain integer after the tag prefix,
-e.g. `XXR 9`. All other `NNN`-style tags store free-form text after a space.
+`XXR` stores the total planned round count as a plain integer after the tag
+prefix, e.g. `XXR 9`. All other `NNN`-style tags store free-form text after a
+space.
 
 Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 `F` full-point bye, `H` half-point bye, `U` unplayed, `Z` zero-point bye.
@@ -107,5 +110,5 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 ## Publishing
 
 Published as `@echecs/trf`. GitHub Actions auto-publishes on `version` bump in
-`package.json` on `main`. Always update `CHANGELOG.md` with version bumps.
-Bump patch for fixes, minor for new features, major for breaking changes.
+`package.json` on `main`. Always update `CHANGELOG.md` with version bumps. Bump
+patch for fixes, minor for new features, major for breaking changes.
