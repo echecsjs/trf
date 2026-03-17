@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0 — 2026-03-17
+
+### Added
+
+- `stringify()` now accepts an optional `StringifyOptions` second argument.
+- `StringifyOptions.onWarning` fires when a player string field (`name`,
+  `federation`, `fideId`, `birthDate`) exceeds its TRF column width and will be
+  truncated. Output is always produced.
+- New exported type: `StringifyOptions`.
+
 ## 2.0.0 — 2026-03-17
 
 ### Breaking Changes

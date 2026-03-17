@@ -83,7 +83,7 @@ Round results on each player use the following codes:
 ```typescript
 import { stringify } from '@echecs/trf';
 
-function stringify(tournament: Tournament): string;
+function stringify(tournament: Tournament, options?: StringifyOptions): string;
 ```
 
 Takes a `Tournament` object and returns a TRF16 string.
@@ -91,13 +91,17 @@ Takes a `Tournament` object and returns a TRF16 string.
 - Never throws.
 - Omits optional header fields when absent.
 - `parse(stringify(t))` roundtrips cleanly for any valid `Tournament`.
+- Warns (via `options.onWarning`) when a player string field exceeds its column
+  width and will be truncated.
 
 ```typescript
 import { parse, stringify } from '@echecs/trf';
 
 const t1 = parse(trfString)!;
 // ...modify t1...
-const updated = stringify(t1);
+const updated = stringify(t1, {
+  onWarning: (w) => console.warn(w.message),
+});
 ```
 
 ### Using with `@echecs/swiss`
@@ -180,6 +184,17 @@ interface RoundResult {
   opponentId: number | null; // null for byes
   result: ResultCode;
   round: number;
+}
+
+interface ParseWarning {
+  column: number; // 1-based column in the source
+  line: number; // 1-based line in the source (player index for stringify)
+  message: string;
+  offset: number; // byte offset in the source (0 for stringify)
+}
+
+interface StringifyOptions {
+  onWarning?: (warning: ParseWarning) => void;
 }
 ```
 
