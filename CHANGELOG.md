@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.0 — 2026-03-17
+
+First stable release. All known issues resolved:
+
+- Accurate `line`/`column`/`offset` positions in `ParseError` and `ParseWarning`
+- Full optional player field coverage: `sex`, `title`, `fideId`, `birthDate`,
+  `federation`
+- Real-world fixture tests from JaVaFo (TRFXSample2) and FIDE TEC
+  (GrandMommysCup TRF25 sample)
+- JaVaFo backward-compatible title codes (`g`→`GM`, `m`→`IM`, `f`→`FM`,
+  `w`→`WIM`)
+- Correct `Sex` type: `'m' | 'w'` per TRF16 spec
+- Rating `0` treated as unrated, not a warning
+- README with full usage examples and type reference
+- 92 tests across 4 fixture files (bbpPairings, JaVaFo, FIDE TEC)
+
 ## 0.5.1 — 2026-03-17
 
 - Treat rating `0` as unrated (`undefined`) rather than a warning — `0` is the
