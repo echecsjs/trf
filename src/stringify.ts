@@ -1,18 +1,19 @@
-import type { Player, Tournament } from './types.js';
+import {
+  COL_BIRTH_DATE,
+  COL_FEDERATION,
+  COL_FIDE_ID,
+  COL_NAME,
+  COL_PAIRING_NUMBER,
+  COL_POINTS,
+  COL_RANK,
+  COL_RATING,
+  COL_SEX,
+  COL_TITLE,
+  ROUND_ENTRY_LENGTH,
+  ROUND_RESULTS_OFFSET,
+} from './columns.js';
 
-// Mirror the COL_* constants from parse.ts
-const COL_PAIRING_NUMBER = 4;
-const COL_SEX = 9;
-const COL_TITLE = 10;
-const COL_NAME = 14;
-const COL_RATING = 48;
-const COL_FEDERATION = 53;
-const COL_FIDE_ID = 57;
-const COL_BIRTH_DATE = 70;
-const COL_POINTS = 80;
-const COL_RANK = 84;
-const ROUND_RESULTS_OFFSET = 91;
-const ROUND_ENTRY_LENGTH = 10;
+import type { Player, Tournament } from './types.js';
 
 function pad(value: string, length: number, align: 'left' | 'right'): string {
   return align === 'right' ? value.padStart(length) : value.padEnd(length);
