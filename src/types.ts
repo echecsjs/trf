@@ -1,19 +1,10 @@
-type ResultCode =
-  | '+'
-  | '-'
-  | '0'
-  | '1'
-  | '='
-  | 'F'
-  | 'H'
-  | 'U'
-  | 'Z';
+type ResultCode = "+" | "-" | "0" | "1" | "=" | "F" | "H" | "U" | "Z";
 
-type Sex = 'f' | 'm';
+type Sex = "f" | "m";
 
-type Title = 'CM' | 'FM' | 'GM' | 'IM' | 'WCM' | 'WFM' | 'WGM' | 'WIM';
+type Title = "CM" | "FM" | "GM" | "IM" | "WCM" | "WFM" | "WGM" | "WIM";
 
-type Version = 'TRF16' | 'TRF26';
+type Version = "TRF16" | "TRF26";
 
 interface ParseError {
   column: number;
@@ -49,7 +40,7 @@ interface Player {
 }
 
 interface RoundResult {
-  color: 'b' | 'w';
+  color: "b" | "w";
   opponentId: number | null;
   result: ResultCode;
   round: number;

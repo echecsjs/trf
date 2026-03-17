@@ -9,9 +9,7 @@ import type {
   Title,
   Tournament,
   Version,
-} from './types.js';
-
-
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,46 +21,46 @@ const ROUND_ENTRY_LENGTH = 10;
 // Tags 062–122 and XXC are recognised (no unknown-tag warning) but their
 // values are not currently used — they are silenced intentionally.
 const KNOWN_HEADER_TAGS = new Set([
-  '001',
-  '012',
-  '022',
-  '032',
-  '042',
-  '052',
-  '062',
-  '072',
-  '082',
-  '092',
-  '102',
-  '112',
-  '122',
-  'XXC',
-  'XXR',
+  "001",
+  "012",
+  "022",
+  "032",
+  "042",
+  "052",
+  "062",
+  "072",
+  "082",
+  "092",
+  "102",
+  "112",
+  "122",
+  "XXC",
+  "XXR",
 ]);
 
 const VALID_RESULT_CODES = new Set<ResultCode>([
-  '+',
-  '-',
-  '0',
-  '1',
-  '=',
-  'F',
-  'H',
-  'U',
-  'Z',
+  "+",
+  "-",
+  "0",
+  "1",
+  "=",
+  "F",
+  "H",
+  "U",
+  "Z",
 ]);
 
-const VALID_SEXES = new Set<Sex>(['f', 'm']);
+const VALID_SEXES = new Set<Sex>(["f", "m"]);
 
 const VALID_TITLES = new Set<Title>([
-  'CM',
-  'FM',
-  'GM',
-  'IM',
-  'WCM',
-  'WFM',
-  'WGM',
-  'WIM',
+  "CM",
+  "FM",
+  "GM",
+  "IM",
+  "WCM",
+  "WFM",
+  "WGM",
+  "WIM",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -137,7 +135,9 @@ function parsePlayerLine(
     index < resultsSection.length;
     index += ROUND_ENTRY_LENGTH
   ) {
-    const entry = resultsSection.slice(index, index + ROUND_ENTRY_LENGTH).trim();
+    const entry = resultsSection
+      .slice(index, index + ROUND_ENTRY_LENGTH)
+      .trim();
     if (entry.length === 0) {
       continue;
     }
@@ -165,7 +165,7 @@ function parsePlayerLine(
       continue;
     }
 
-    if (colorRaw !== 'w' && colorRaw !== 'b' && colorRaw !== '-') {
+    if (colorRaw !== "w" && colorRaw !== "b" && colorRaw !== "-") {
       onWarning?.(
         makeWarning(
           `Invalid color code "${colorRaw}" in round ${Math.floor(index / ROUND_ENTRY_LENGTH) + 1}`,
@@ -175,9 +175,9 @@ function parsePlayerLine(
       continue;
     }
     // '-' is the TRF marker for byes (no color assigned); treat as 'b' for storage
-    const color: 'b' | 'w' = colorRaw === 'w' ? 'w' : 'b';
+    const color: "b" | "w" = colorRaw === "w" ? "w" : "b";
     // eslint-disable-next-line unicorn/no-null
-    const opponentId = opponentRaw === '0000' ? null : Number(opponentRaw);
+    const opponentId = opponentRaw === "0000" ? null : Number(opponentRaw);
     const round = Math.floor(index / ROUND_ENTRY_LENGTH) + 1;
 
     results.push({
@@ -206,7 +206,7 @@ function parsePlayerLine(
 function detectVersion(): Version {
   // TRF26 heuristics deferred — all content treated as TRF16 for now
   // TODO: detect TRF26 from content once the spec stabilises
-  return 'TRF16';
+  return "TRF16";
 }
 
 // ---------------------------------------------------------------------------
@@ -217,10 +217,10 @@ export default function parse(
   input: string,
   options?: ParseOptions,
 ): Tournament | null {
-  const content = input.replace(/^\uFEFF/, '').trim();
+  const content = input.replace(/^\uFEFF/, "").trim();
 
   if (content.length === 0) {
-    options?.onError?.(makeError('Input is empty'));
+    options?.onError?.(makeError("Input is empty"));
     // eslint-disable-next-line unicorn/no-null
     return null;
   }
@@ -233,48 +233,48 @@ export default function parse(
     version,
   };
 
-  const lines = content.split('\n');
+  const lines = content.split("\n");
 
   for (const [index, line] of lines.entries()) {
     const lineNumber = index + 1;
     const tag = line.slice(0, 3);
 
     switch (tag) {
-      case '001': {
+      case "001": {
         tournament.players.push(
           parsePlayerLine(line, lineNumber, options?.onWarning),
         );
         break;
       }
-      case '012': {
+      case "012": {
         tournament.name = line.slice(4).trim();
         break;
       }
-      case '022': {
+      case "022": {
         tournament.city = line.slice(4).trim();
         break;
       }
-      case '032': {
+      case "032": {
         tournament.federation = line.slice(4).trim();
         break;
       }
-      case '042': {
+      case "042": {
         tournament.startDate = line.slice(4).trim();
         break;
       }
-      case '052': {
+      case "052": {
         tournament.endDate = line.slice(4).trim();
         break;
       }
-      case '092': {
+      case "092": {
         tournament.chiefArbiter = line.slice(4).trim();
         break;
       }
-      case '112': {
+      case "112": {
         tournament.timeControl = line.slice(4).trim();
         break;
       }
-      case 'XXR': {
+      case "XXR": {
         tournament.rounds = Number(line.slice(4).trim()) || 0;
         break;
       }
@@ -291,4 +291,15 @@ export default function parse(
   return tournament;
 }
 
-export {type ParseError, type ParseOptions, type ParseWarning, type Player, type ResultCode, type RoundResult, type Sex, type Title, type Tournament, type Version} from './types.js';
+export {
+  type ParseError,
+  type ParseOptions,
+  type ParseWarning,
+  type Player,
+  type ResultCode,
+  type RoundResult,
+  type Sex,
+  type Title,
+  type Tournament,
+  type Version,
+} from "./types.js";
