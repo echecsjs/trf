@@ -3,7 +3,7 @@
   "bugs": {
     "url": "https://github.com/mormubis/trf/issues"
   },
-  "description": "FIDE Tournament Report File (TRF) parser.",
+  "description": "Parse FIDE Tournament Report Files (TRF) from chess pairing software into structured JavaScript objects. Zero dependencies, strict TypeScript.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",
@@ -40,11 +40,17 @@
   ],
   "homepage": "https://github.com/mormubis/trf#readme",
   "keywords": [
+    "arbiter",
     "chess",
     "fide",
+    "no-dependencies",
+    "pairing",
     "parser",
+    "swiss",
     "tournament",
-    "trf"
+    "tournament report file",
+    "trf",
+    "typescript"
   ],
   "license": "MIT",
   "main": "dist/index.js",
