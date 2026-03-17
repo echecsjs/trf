@@ -246,6 +246,7 @@ function fixture(name: string): string {
 const ROUNDTRIP_FIXTURES = [
   'dutch_2025_C5',
   'dutch_2025_C9',
+  'grandmommyscup',
   'issue_7',
   'issue_15',
   'javafo_sample2',
@@ -256,7 +257,6 @@ describe('stringify — roundtrip', () => {
     it(`parse → stringify → parse is stable for ${name}`, () => {
       const t1 = parse(fixture(name))!;
       const t2 = parse(stringify(t1))!;
-      expect(t2).not.toBeNull();
       expect(t2.name).toBe(t1.name);
       expect(t2.rounds).toBe(t1.rounds);
       expect(t2.players).toHaveLength(t1.players.length);
@@ -267,6 +267,11 @@ describe('stringify — roundtrip', () => {
         expect(p2.rating).toBe(p1.rating);
         expect(p2.points).toBe(p1.points);
         expect(p2.rank).toBe(p1.rank);
+        expect(p2.sex).toBe(p1.sex);
+        expect(p2.title).toBe(p1.title);
+        expect(p2.federation).toBe(p1.federation);
+        expect(p2.fideId).toBe(p1.fideId);
+        expect(p2.birthDate).toBe(p1.birthDate);
         expect(p2.results).toHaveLength(p1.results.length);
         for (const [index, r1] of p1.results.entries()) {
           const r2 = p2.results[index]!;
