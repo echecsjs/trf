@@ -5,13 +5,13 @@
 [![Coverage](https://codecov.io/gh/mormubis/trf/branch/main/graph/badge.svg)](https://codecov.io/gh/mormubis/trf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**TRF** is a TypeScript parser for the
+**TRF** is a TypeScript parser and serializer for the
 [FIDE Tournament Report File](https://handbook.fide.com/files/handbook/TRF26.pdf)
 format — the standard interchange format used by all FIDE-endorsed pairing
 software (JaVaFo, bbpPairings, Swiss Manager, Vega).
 
-Parses TRF strings into a fully-typed `Tournament` object with players, round
-results, and tournament metadata. Zero runtime dependencies.
+Parses TRF strings into a fully-typed `Tournament` object and serializes them
+back. Zero runtime dependencies.
 
 ## Installation
 
@@ -22,7 +22,7 @@ npm install @echecs/trf
 ## Quick Start
 
 ```typescript
-import parse from '@echecs/trf';
+import { parse, stringify } from '@echecs/trf';
 
 const tournament = parse(trfString);
 
@@ -31,6 +31,8 @@ console.log(tournament.rounds); // 9
 console.log(tournament.players[0].name); // "Player0001"
 console.log(tournament.players[0].rating); // 2720
 console.log(tournament.players[0].results); // [{ round: 1, color: 'w', opponentId: 4, result: '1' }, ...]
+
+const trf = stringify(tournament); // back to TRF string
 ```
 
 ## Usage
@@ -38,12 +40,9 @@ console.log(tournament.players[0].results); // [{ round: 1, color: 'w', opponent
 ### `parse()`
 
 ```typescript
-import parse from '@echecs/trf';
+import { parse } from '@echecs/trf';
 
-export default function parse(
-  input: string,
-  options?: ParseOptions,
-): Tournament | null;
+function parse(input: string, options?: ParseOptions): Tournament | null;
 ```
 
 Takes a TRF string and returns a `Tournament` object, or `null` if the input
@@ -55,7 +54,7 @@ cannot be parsed.
   and continue parsing.
 
 ```typescript
-import parse from '@echecs/trf';
+import { parse } from '@echecs/trf';
 
 const tournament = parse(trfString, {
   onError: (err) => console.error(`Parse failed: ${err.message}`),
@@ -79,6 +78,28 @@ Round results on each player use the following codes:
 | `U`  | Unplayed       |
 | `Z`  | Zero-point bye |
 
+### `stringify()`
+
+```typescript
+import { stringify } from '@echecs/trf';
+
+function stringify(tournament: Tournament): string;
+```
+
+Takes a `Tournament` object and returns a TRF16 string.
+
+- Never throws.
+- Omits optional header fields when absent.
+- `parse(stringify(t))` roundtrips cleanly for any valid `Tournament`.
+
+```typescript
+import { parse, stringify } from '@echecs/trf';
+
+const t1 = parse(trfString)!;
+// ...modify t1...
+const updated = stringify(t1);
+```
+
 ### Using with `@echecs/swiss`
 
 `@echecs/trf` has no dependency on `@echecs/swiss` by design. To use a parsed
@@ -86,7 +107,7 @@ tournament as input to the Swiss pairing functions, adapt the types in your own
 code:
 
 ```typescript
-import parse from '@echecs/trf';
+import { parse } from '@echecs/trf';
 import { dutch } from '@echecs/swiss';
 
 import type { Tournament } from '@echecs/trf';
