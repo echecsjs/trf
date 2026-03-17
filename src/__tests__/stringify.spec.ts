@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { stringify } from '../index.js';
+import { parse, stringify } from '../index.js';
 
 import type { Player, Tournament } from '../types.js';
 
@@ -232,4 +234,48 @@ describe('stringify — round results', () => {
       .find((l) => l.startsWith('001'))!;
     expect(line.length).toBe(89);
   });
+});
+
+function fixture(name: string): string {
+  return readFileSync(
+    path.join(import.meta.dirname, 'fixtures', `${name}.trf`),
+    'utf8',
+  );
+}
+
+const ROUNDTRIP_FIXTURES = [
+  'dutch_2025_C5',
+  'dutch_2025_C9',
+  'issue_7',
+  'issue_15',
+  'javafo_sample2',
+];
+
+describe('stringify — roundtrip', () => {
+  for (const name of ROUNDTRIP_FIXTURES) {
+    it(`parse → stringify → parse is stable for ${name}`, () => {
+      const t1 = parse(fixture(name))!;
+      const t2 = parse(stringify(t1))!;
+      expect(t2).not.toBeNull();
+      expect(t2.name).toBe(t1.name);
+      expect(t2.rounds).toBe(t1.rounds);
+      expect(t2.players).toHaveLength(t1.players.length);
+      for (const [index, p1] of t1.players.entries()) {
+        const p2 = t2.players[index]!;
+        expect(p2.pairingNumber).toBe(p1.pairingNumber);
+        expect(p2.name).toBe(p1.name);
+        expect(p2.rating).toBe(p1.rating);
+        expect(p2.points).toBe(p1.points);
+        expect(p2.rank).toBe(p1.rank);
+        expect(p2.results).toHaveLength(p1.results.length);
+        for (const [index, r1] of p1.results.entries()) {
+          const r2 = p2.results[index]!;
+          expect(r2.round).toBe(r1.round);
+          expect(r2.color).toBe(r1.color);
+          expect(r2.result).toBe(r1.result);
+          expect(r2.opponentId).toBe(r1.opponentId);
+        }
+      }
+    });
+  }
 });
