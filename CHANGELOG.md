@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-03-17
+
+- Treat rating `0` as unrated (`undefined`) rather than a warning — `0` is the
+  JaVaFo convention for unrated players
+
 ## 0.5.0 — 2026-03-17
 
 **Breaking change:** `Sex` type changed from `'f' | 'm'` to `'m' | 'w'` to match

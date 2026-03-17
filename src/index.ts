@@ -113,7 +113,11 @@ function parseRating(
   }
 
   const n = Number(trimmed);
-  if (!Number.isFinite(n) || n <= 0) {
+  // 0 is the conventional sentinel for "unrated" in JaVaFo and some tools.
+  if (n === 0) {
+    return undefined;
+  }
+  if (!Number.isFinite(n) || n < 0) {
     onWarning?.(
       makeWarning(
         `Malformed rating: "${trimmed}"`,
