@@ -54,10 +54,10 @@ jobs:
       - name: ⎔ Setup node
         uses: actions/setup-node@v4
         with:
-          cache: 'pnpm'
-          node-version: 'node'
-          registry-url: 'https://registry.npmjs.org'
-          scope: '@echecs'
+          cache: "pnpm"
+          node-version: "node"
+          registry-url: "https://registry.npmjs.org"
+          scope: "@echecs"
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile

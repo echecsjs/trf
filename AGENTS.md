@@ -59,9 +59,10 @@ pnpm lint && pnpm test && pnpm build
 TRF (Tournament Report File) is the FIDE interchange format for pairing software.
 
 Column layout of a `001` player line (0-indexed):
-- 0–2:   record type (`001`)
-- 4–7:   pairing number
-- 9:     sex (`m`/`f`)
+
+- 0–2: record type (`001`)
+- 4–7: pairing number
+- 9: sex (`m`/`f`)
 - 10–13: FIDE title
 - 15–46: player name
 - 48–51: FIDE rating
@@ -70,7 +71,7 @@ Column layout of a `001` player line (0-indexed):
 - 70–79: date of birth
 - 80–83: points
 - 84–88: rank
-- 91+:   round results, 10 chars each (`   O c r  `)
+- 91+: round results, 10 chars each (`   O c r  `)
 
 Header tag prefixes: `012` name, `022` city, `032` federation, `042` start date,
 `052` end date, `092` chief arbiter, `112` time control, `XXR` rounds.
