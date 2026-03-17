@@ -243,6 +243,36 @@ describe('parse — XXR tag', () => {
 });
 
 // ---------------------------------------------------------------------------
+// issue_15 fixture
+// ---------------------------------------------------------------------------
+describe('parse — issue_15 fixture', () => {
+  it('parses 180 players', () => {
+    expect(parse(fixture('issue_15'))?.players).toHaveLength(180);
+  });
+
+  it('parses rounds as 12', () => {
+    expect(parse(fixture('issue_15'))?.rounds).toBe(12);
+  });
+
+  it('parses P1 score as 8.0', () => {
+    expect(parse(fixture('issue_15'))?.players[0]?.points).toBe(8);
+  });
+
+  it('parses P1 rating as 2761', () => {
+    expect(parse(fixture('issue_15'))?.players[0]?.rating).toBe(2761);
+  });
+
+  it('parses 11 round results for P1', () => {
+    const p1 = parse(fixture('issue_15'))?.players[0];
+    expect(p1?.results).toHaveLength(11);
+  });
+
+  it('does not return null', () => {
+    expect(parse(fixture('issue_15'))).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Round number assignment
 // ---------------------------------------------------------------------------
 describe('parse — round number assignment', () => {
