@@ -623,3 +623,27 @@ describe('parse — warning position accuracy', () => {
     expect(warn.column).toBe(92); // ROUND_RESULTS_OFFSET + 1
   });
 });
+
+// ---------------------------------------------------------------------------
+// Round result edge cases
+// ---------------------------------------------------------------------------
+describe('parse — round result edge cases', () => {
+  it('skips a round entry with fewer than 3 parts', () => {
+    // A round entry that has only one token (no color or result) is silently skipped
+    const playerLine =
+      '001    1      Test0001 Player0001               2720                             2.0    1   2';
+    const result = parse(`012 T\nXXR 1\n${playerLine}\n`);
+    expect(result?.players[0]?.results).toHaveLength(0);
+  });
+
+  it('emits onWarning and skips a round entry with an invalid color code', () => {
+    const onWarning = vi.fn();
+    // Color byte replaced with 'x' — not a valid color code
+    const playerLine =
+      '001    1      Test0001 Player0001               2720                             2.0    1      2 x 1';
+    const result = parse(`012 T\nXXR 1\n${playerLine}\n`, { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+    expect(onWarning.mock.calls[0]?.[0].message).toMatch(/invalid color code/i);
+    expect(result?.players[0]?.results).toHaveLength(0);
+  });
+});
