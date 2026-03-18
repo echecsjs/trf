@@ -180,7 +180,7 @@ interface Player {
 }
 
 interface RoundResult {
-  color: 'b' | 'w';
+  color: 'b' | 'w' | '-'; // '-' = no color assigned (bye/unplayed)
   opponentId: number | null; // null for byes
   result: ResultCode;
   round: number;

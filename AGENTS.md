@@ -10,10 +10,10 @@ TypeScript settings, formatting, naming, testing, ESLint rules).
 
 ## Project Overview
 
-Pure parser library, no runtime dependencies. Default export:
-`parse(input, options?) → Tournament | null`. Never throws; returns `null` on
-failure and calls `options.onError`. Recoverable issues emit
-`options.onWarning`.
+Parser and serializer library, no runtime dependencies. Named exports:
+`parse(input, options?) → Tournament | null` and
+`stringify(tournament, options?) → string`. Never throws; parse failures return
+`null` and call `options.onError`. Recoverable issues emit `options.onWarning`.
 
 Mirrors the API style of `@echecs/pgn`.
 
@@ -24,7 +24,7 @@ Mirrors the API style of `@echecs/pgn`.
 ### Build
 
 ```bash
-pnpm run build          # compile TypeScript → dist/
+pnpm run build          # bundle → dist/
 ```
 
 ### Test
@@ -91,7 +91,9 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 
 - No runtime dependencies — keep it that way.
 - `parse()` is synchronous — do not introduce async.
-- `src/index.ts` contains both the implementation and public re-exports.
+- `src/index.ts` is a re-export barrel. Logic lives in `src/parse.ts` and
+  `src/stringify.ts`.
+- `src/columns.ts` contains shared column offset constants.
 - `src/types.ts` contains all exported types.
 - All interface fields sorted alphabetically (`sort-keys` is an ESLint error).
 - Always use `.js` extensions on relative imports (NodeNext resolution).

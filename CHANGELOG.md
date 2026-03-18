@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0 — 2026-03-18
+
+### Breaking Changes
+
+- `RoundResult.color` is now `'b' | 'w' | '-'`. The `-` value represents entries
+  with no color assigned (byes, unplayed games). Previously these were silently
+  normalised to `'b'`, losing information.
+
+### Fixed
+
+- Parse and stringify now roundtrip `-` color entries faithfully.
+
 ## 2.1.0 — 2026-03-17
 
 ### Added
