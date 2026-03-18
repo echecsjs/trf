@@ -53,13 +53,18 @@ interface RoundResult {
 interface Tournament {
   chiefArbiter?: string;
   city?: string;
+  deputyArbiters?: string[];
   endDate?: string;
   federation?: string;
   name?: string;
+  numberOfPlayers?: number;
+  numberOfRatedPlayers?: number;
+  numberOfTeams?: number;
   players: Player[];
   rounds: number;
   startDate?: string;
   timeControl?: string;
+  tournamentType?: string;
   version: Version;
 }
 

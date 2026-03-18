@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { parse } from '../index.js';
+import { parse, stringify } from '../index.js';
 
-import type { ParseError, ParseWarning } from '../types.js';
+import type { ParseError, ParseWarning, Tournament } from '../types.js';
 
 function fixture(name: string): string {
   return readFileSync(
@@ -64,14 +64,36 @@ describe('parse — header tags', () => {
     expect(parse('012 T\n052 2026-01-07\nXXR 1\n')?.endDate).toBe('2026-01-07');
   });
 
-  it('parses chief arbiter from 092 tag', () => {
-    expect(parse('012 T\n092 Smith John\nXXR 1\n')?.chiefArbiter).toBe(
+  it('parses type of tournament from 092 tag', () => {
+    expect(parse('012 T\n092 Swiss\nXXR 1\n')?.tournamentType).toBe('Swiss');
+  });
+
+  it('parses chief arbiter from 102 tag', () => {
+    expect(parse('012 T\n102 Smith John\nXXR 1\n')?.chiefArbiter).toBe(
       'Smith John',
     );
   });
 
-  it('parses time control from 112 tag', () => {
-    expect(parse('012 T\n112 90+30\nXXR 1\n')?.timeControl).toBe('90+30');
+  it('parses deputy arbiters from 112 tag', () => {
+    expect(
+      parse('012 T\n112 Doe Jane\n112 Doe Jim\nXXR 1\n')?.deputyArbiters,
+    ).toEqual(['Doe Jane', 'Doe Jim']);
+  });
+
+  it('parses time control from 122 tag', () => {
+    expect(parse('012 T\n122 90+30\nXXR 1\n')?.timeControl).toBe('90+30');
+  });
+
+  it('parses number of players from 062 tag', () => {
+    expect(parse('012 T\n062 100\nXXR 1\n')?.numberOfPlayers).toBe(100);
+  });
+
+  it('parses number of rated players from 072 tag', () => {
+    expect(parse('012 T\n072 80\nXXR 1\n')?.numberOfRatedPlayers).toBe(80);
+  });
+
+  it('parses number of teams from 082 tag', () => {
+    expect(parse('012 T\n082 10\nXXR 1\n')?.numberOfTeams).toBe(10);
   });
 
   it('parses rounds from XXR tag', () => {
@@ -687,5 +709,82 @@ describe('parse — round result edge cases', () => {
     expect(onWarning).toHaveBeenCalledOnce();
     expect(onWarning.mock.calls[0]?.[0].message).toMatch(/invalid color code/i);
     expect(result?.players[0]?.results).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stringify tests
+// ---------------------------------------------------------------------------
+describe('stringify — header tags', () => {
+  it('stringifies tournamentType as 092', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      tournamentType: 'Swiss',
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('092 Swiss');
+  });
+
+  it('stringifies chiefArbiter as 102', () => {
+    const t: Tournament = {
+      chiefArbiter: 'Smith',
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('102 Smith');
+  });
+
+  it('stringifies each deputyArbiter as 112', () => {
+    const t: Tournament = {
+      deputyArbiters: ['A', 'B'],
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    const out = stringify(t);
+    expect(out).toContain('112 A');
+    expect(out).toContain('112 B');
+  });
+
+  it('stringifies timeControl as 122', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      timeControl: '90+30',
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('122 90+30');
+  });
+
+  it('stringifies numberOfPlayers as 062', () => {
+    const t: Tournament = {
+      numberOfPlayers: 100,
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('062 100');
+  });
+
+  it('stringifies numberOfRatedPlayers as 072', () => {
+    const t: Tournament = {
+      numberOfRatedPlayers: 80,
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('072 80');
+  });
+
+  it('stringifies numberOfTeams as 082', () => {
+    const t: Tournament = {
+      numberOfTeams: 10,
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toContain('082 10');
   });
 });

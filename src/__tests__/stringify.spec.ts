@@ -46,14 +46,14 @@ describe('stringify — header tags', () => {
     );
   });
 
-  it('emits 092 line for chiefArbiter', () => {
+  it('emits 102 line for chiefArbiter', () => {
     expect(stringify(minimal({ chiefArbiter: 'Smith John' }))).toContain(
-      '092 Smith John',
+      '102 Smith John',
     );
   });
 
-  it('emits 112 line for timeControl', () => {
-    expect(stringify(minimal({ timeControl: '90+30' }))).toContain('112 90+30');
+  it('emits 122 line for timeControl', () => {
+    expect(stringify(minimal({ timeControl: '90+30' }))).toContain('122 90+30');
   });
 
   it('omits 012 line when name is absent', () => {

@@ -26,8 +26,8 @@ import type {
   Version,
 } from './types.js';
 
-// Tags 062–122 and XXC are recognised (no unknown-tag warning) but their
-// values are not currently used — they are silenced intentionally.
+// XXC is recognised (no unknown-tag warning) but its value is not currently
+// used — it is silenced intentionally.
 const KNOWN_HEADER_TAGS = new Set([
   '001',
   '012',
@@ -317,11 +317,35 @@ export default function parse(
         tournament.endDate = line.slice(4).trim();
         break;
       }
+      case '062': {
+        const n062 = Number(line.slice(4).trim());
+        if (n062 > 0) {tournament.numberOfPlayers = n062;}
+        break;
+      }
+      case '072': {
+        const n072 = Number(line.slice(4).trim());
+        if (n072 > 0) {tournament.numberOfRatedPlayers = n072;}
+        break;
+      }
+      case '082': {
+        const n082 = Number(line.slice(4).trim());
+        if (n082 > 0) {tournament.numberOfTeams = n082;}
+        break;
+      }
       case '092': {
+        tournament.tournamentType = line.slice(4).trim();
+        break;
+      }
+      case '102': {
         tournament.chiefArbiter = line.slice(4).trim();
         break;
       }
       case '112': {
+        tournament.deputyArbiters ??= [];
+        tournament.deputyArbiters.push(line.slice(4).trim());
+        break;
+      }
+      case '122': {
         tournament.timeControl = line.slice(4).trim();
         break;
       }

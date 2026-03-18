@@ -156,11 +156,26 @@ export default function stringify(
   if (tournament.endDate !== undefined) {
     lines.push(`052 ${tournament.endDate}`);
   }
+  if (tournament.numberOfPlayers !== undefined) {
+    lines.push(`062 ${tournament.numberOfPlayers}`);
+  }
+  if (tournament.numberOfRatedPlayers !== undefined) {
+    lines.push(`072 ${tournament.numberOfRatedPlayers}`);
+  }
+  if (tournament.numberOfTeams !== undefined) {
+    lines.push(`082 ${tournament.numberOfTeams}`);
+  }
+  if (tournament.tournamentType !== undefined) {
+    lines.push(`092 ${tournament.tournamentType}`);
+  }
   if (tournament.chiefArbiter !== undefined) {
-    lines.push(`092 ${tournament.chiefArbiter}`);
+    lines.push(`102 ${tournament.chiefArbiter}`);
+  }
+  for (const arbiter of tournament.deputyArbiters ?? []) {
+    lines.push(`112 ${arbiter}`);
   }
   if (tournament.timeControl !== undefined) {
-    lines.push(`112 ${tournament.timeControl}`);
+    lines.push(`122 ${tournament.timeControl}`);
   }
   if (tournament.rounds > 0) {
     lines.push(`XXR ${tournament.rounds}`);
