@@ -57,10 +57,12 @@ interface Tournament {
   deputyArbiters?: string[];
   endDate?: string;
   federation?: string;
+  initialColour?: 'B' | 'W';
   name?: string;
   numberOfPlayers?: number;
   numberOfRatedPlayers?: number;
   numberOfTeams?: number;
+  pairingController?: string;
   players: Player[];
   rounds: number;
   startDate?: string;

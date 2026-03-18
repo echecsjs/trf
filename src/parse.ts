@@ -43,11 +43,8 @@ const KNOWN_HEADER_TAGS = new Set([
   '102',
   '112',
   '122',
-  '142',
-  '152',
   '162',
   '172',
-  '182',
   '192',
   '202',
   '212',
@@ -410,6 +407,24 @@ export default function parse(
       }
       case '122': {
         tournament.timeControl = line.slice(4).trim();
+        break;
+      }
+      case '142': {
+        const r = Number(line.slice(4).trim());
+        if (r > 0) {
+          tournament.rounds = r;
+        }
+        break;
+      }
+      case '152': {
+        const c = line.slice(4).trim();
+        if (c === 'W' || c === 'B') {
+          tournament.initialColour = c;
+        }
+        break;
+      }
+      case '182': {
+        tournament.pairingController = line.slice(4).trim();
         break;
       }
       case 'XXR': {

@@ -141,6 +141,12 @@ export default function stringify(
 ): string {
   const lines: string[] = [];
 
+  if (tournament.version === 'TRF26') {
+    for (const comment of tournament.comments ?? []) {
+      lines.push(`### ${comment}`);
+    }
+  }
+
   if (tournament.name !== undefined) {
     lines.push(`012 ${tournament.name}`);
   }
@@ -179,6 +185,18 @@ export default function stringify(
   }
   if (tournament.rounds > 0) {
     lines.push(`XXR ${tournament.rounds}`);
+  }
+
+  if (tournament.version === 'TRF26') {
+    if (tournament.rounds > 0) {
+      lines.push(`142 ${tournament.rounds}`);
+    }
+    if (tournament.initialColour !== undefined) {
+      lines.push(`152 ${tournament.initialColour}`);
+    }
+    if (tournament.pairingController !== undefined) {
+      lines.push(`182 ${tournament.pairingController}`);
+    }
   }
 
   for (const [index, player] of tournament.players.entries()) {

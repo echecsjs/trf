@@ -600,11 +600,10 @@ describe('parse — grandmommyscup fixture', () => {
     expect(parse(fixture('grandmommyscup'))?.players).toHaveLength(249);
   });
 
-  it('parses rounds from 142 (mapped as chief arbiter — unknown tag gracefully ignored)', () => {
+  it('parses rounds from 142 tag', () => {
     // The GrandMommysCup uses tag 142 for rounds instead of XXR.
-    // Our parser does not recognise 142 as a rounds tag — rounds will be 0.
-    // This is expected behaviour for TRF25-only tags.
-    expect(parse(fixture('grandmommyscup'))?.rounds).toBe(0);
+    // Our parser now recognises 142 as a rounds tag (TRF26).
+    expect(parse(fixture('grandmommyscup'))?.rounds).toBe(14);
   });
 
   it('parses P1 name', () => {
@@ -842,5 +841,114 @@ describe('stringify — header tags', () => {
       version: 'TRF16',
     };
     expect(stringify(t)).toContain('082 10');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TRF26 tag parsing
+// ---------------------------------------------------------------------------
+describe('parse — TRF26 tags', () => {
+  it('parses rounds from 142 tag', () => {
+    expect(parse('### trf26\n012 T\n142 11\n')?.rounds).toBe(11);
+  });
+
+  it('parses initialColour W from 152 tag', () => {
+    expect(parse('### trf26\n012 T\n152 W\nXXR 1\n')?.initialColour).toBe('W');
+  });
+
+  it('parses initialColour B from 152 tag', () => {
+    expect(parse('### trf26\n012 T\n152 B\nXXR 1\n')?.initialColour).toBe('B');
+  });
+
+  it('ignores invalid 152 value', () => {
+    expect(
+      parse('### trf26\n012 T\n152 X\nXXR 1\n')?.initialColour,
+    ).toBeUndefined();
+  });
+
+  it('parses pairingController from 182 tag', () => {
+    expect(
+      parse('### trf26\n012 T\n182 bbpPairings\nXXR 1\n')?.pairingController,
+    ).toBe('bbpPairings');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TRF26 stringify features
+// ---------------------------------------------------------------------------
+describe('stringify — TRF26 features', () => {
+  it('emits ### comments before other tags when version is TRF26', () => {
+    const t: Tournament = {
+      comments: ['hello'],
+      name: 'T',
+      players: [],
+      rounds: 1,
+      version: 'TRF26',
+    };
+    const lines = stringify(t).split('\n');
+    expect(lines[0]).toBe('### hello');
+    expect(lines[1]).toBe('012 T');
+  });
+
+  it('does not emit ### comments for TRF16', () => {
+    const t: Tournament = {
+      comments: ['hello'],
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toContain('###');
+  });
+
+  it('emits 142 in addition to XXR when version is TRF26', () => {
+    const t: Tournament = { players: [], rounds: 9, version: 'TRF26' };
+    const out = stringify(t);
+    expect(out).toContain('142 9');
+    expect(out).toContain('XXR 9');
+  });
+
+  it('does not emit 142 for TRF16', () => {
+    const t: Tournament = { players: [], rounds: 9, version: 'TRF16' };
+    expect(stringify(t)).not.toContain('142');
+  });
+
+  it('emits 152 initialColour when version is TRF26', () => {
+    const t: Tournament = {
+      initialColour: 'W',
+      players: [],
+      rounds: 1,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toContain('152 W');
+  });
+
+  it('does not emit 152 for TRF16', () => {
+    const t: Tournament = {
+      initialColour: 'W',
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toContain('152');
+  });
+
+  it('emits 182 pairingController when version is TRF26', () => {
+    const t: Tournament = {
+      pairingController: 'bbpPairings',
+      players: [],
+      rounds: 1,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toContain('182 bbpPairings');
+  });
+
+  it('does not emit 182 for TRF16', () => {
+    const t: Tournament = {
+      pairingController: 'bbpPairings',
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toContain('182');
   });
 });
