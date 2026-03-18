@@ -319,17 +319,23 @@ export default function parse(
       }
       case '062': {
         const n062 = Number(line.slice(4).trim());
-        if (n062 > 0) {tournament.numberOfPlayers = n062;}
+        if (n062 > 0) {
+          tournament.numberOfPlayers = n062;
+        }
         break;
       }
       case '072': {
         const n072 = Number(line.slice(4).trim());
-        if (n072 > 0) {tournament.numberOfRatedPlayers = n072;}
+        if (n072 > 0) {
+          tournament.numberOfRatedPlayers = n072;
+        }
         break;
       }
       case '082': {
         const n082 = Number(line.slice(4).trim());
-        if (n082 > 0) {tournament.numberOfTeams = n082;}
+        if (n082 > 0) {
+          tournament.numberOfTeams = n082;
+        }
         break;
       }
       case '092': {
