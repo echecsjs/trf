@@ -44,7 +44,7 @@ interface Player {
 }
 
 interface RoundResult {
-  color: 'b' | 'w';
+  color: 'b' | 'w' | '-';
   opponentId: number | null;
   result: ResultCode;
   round: number;

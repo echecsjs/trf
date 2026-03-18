@@ -271,6 +271,7 @@ describe('parse — round results', () => {
     const zBye = p4?.results.find((r) => r.result === 'Z');
     expect(zBye).toBeDefined();
     expect(zBye?.opponentId).toBeNull();
+    expect(zBye?.color).toBe('-');
   });
 
   it('parses forfeit win (+) present in issue_7', () => {
@@ -279,6 +280,25 @@ describe('parse — round results', () => {
       p.results.map((r) => r.result),
     );
     expect(allResults).toContain('+');
+  });
+
+  it('preserves - color for half-point bye', () => {
+    const playerLine =
+      '001    1      Test0001 Player0001               2720                             1.0    1  0000 - H  ';
+    const result = parse(`012 T\nXXR 1\n${playerLine}\n`);
+    const r = result?.players[0]?.results[0];
+    expect(r?.color).toBe('-');
+    expect(r?.result).toBe('H');
+    expect(r?.opponentId).toBeNull();
+  });
+
+  it('preserves - color for zero-point bye', () => {
+    const playerLine =
+      '001    1      Test0001 Player0001               2720                             0.0    1  0000 - Z  ';
+    const result = parse(`012 T\nXXR 1\n${playerLine}\n`);
+    const r = result?.players[0]?.results[0];
+    expect(r?.color).toBe('-');
+    expect(r?.result).toBe('Z');
   });
 });
 
@@ -505,6 +525,7 @@ describe('parse — javafo_sample2 fixture', () => {
     const hBye = p14?.results.find((r) => r.result === 'H');
     expect(hBye).toBeDefined();
     expect(hBye?.opponentId).toBeNull();
+    expect(hBye?.color).toBe('-');
   });
 
   it('parses U (unplayed) result code', () => {

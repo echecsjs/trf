@@ -220,8 +220,9 @@ function parsePlayerLine(
       );
       continue;
     }
-    // '-' is the TRF marker for byes (no color assigned); treat as 'b' for storage
-    const color: 'b' | 'w' = colorRaw === 'w' ? 'w' : 'b';
+    // '-' is the TRF marker for byes (no color assigned); preserve as-is
+    const color: 'b' | 'w' | '-' =
+      colorRaw === 'w' ? 'w' : (colorRaw === 'b' ? 'b' : '-');
     // eslint-disable-next-line unicorn/no-null
     const opponentId = opponentRaw === '0000' ? null : Number(opponentRaw);
     const round = Math.floor(index / ROUND_ENTRY_LENGTH) + 1;
