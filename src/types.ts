@@ -53,6 +53,7 @@ interface RoundResult {
 interface Tournament {
   chiefArbiter?: string;
   city?: string;
+  comments?: string[];
   deputyArbiters?: string[];
   endDate?: string;
   federation?: string;

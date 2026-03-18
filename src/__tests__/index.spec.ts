@@ -713,6 +713,53 @@ describe('parse — round result edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Version detection
+// ---------------------------------------------------------------------------
+describe('parse — version detection', () => {
+  it('returns TRF16 for standard TRF16 input', () => {
+    expect(parse('012 T\nXXR 1\n')?.version).toBe('TRF16');
+  });
+
+  it('returns TRF26 when ### comment line is present', () => {
+    expect(parse('### comment\n012 T\nXXR 1\n')?.version).toBe('TRF26');
+  });
+
+  it('returns TRF26 when 142 tag is present', () => {
+    expect(parse('012 T\n142 9\n')?.version).toBe('TRF26');
+  });
+
+  it('returns TRF26 when 310 record is present', () => {
+    expect(parse('012 T\nXXR 1\n310   1 India\n')?.version).toBe('TRF26');
+  });
+
+  it('returns TRF26 when 250 record is present', () => {
+    expect(
+      parse('012 T\nXXR 1\n250 00.0 02.0 001 003 0001 0090\n')?.version,
+    ).toBe('TRF26');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Comment lines
+// ---------------------------------------------------------------------------
+describe('parse — comment lines', () => {
+  it('collects ### comment lines into comments array', () => {
+    const result = parse('### first comment\n### second\n012 T\nXXR 1\n');
+    expect(result?.comments).toEqual(['first comment', 'second']);
+  });
+
+  it('comments array is undefined when no ### lines present', () => {
+    expect(parse('012 T\nXXR 1\n')?.comments).toBeUndefined();
+  });
+
+  it('### lines do not cause unknown-tag warnings', () => {
+    const onWarning = vi.fn();
+    parse('### comment\n012 T\nXXR 1\n', { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Stringify tests
 // ---------------------------------------------------------------------------
 describe('stringify — header tags', () => {

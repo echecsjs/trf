@@ -29,6 +29,7 @@ import type {
 // XXC is recognised (no unknown-tag warning) but its value is not currently
 // used — it is silenced intentionally.
 const KNOWN_HEADER_TAGS = new Set([
+  '###',
   '001',
   '012',
   '022',
@@ -42,8 +43,52 @@ const KNOWN_HEADER_TAGS = new Set([
   '102',
   '112',
   '122',
+  '142',
+  '152',
+  '162',
+  '172',
+  '182',
+  '192',
+  '202',
+  '212',
+  '222',
+  '250',
+  '260',
+  '299',
+  '300',
+  '310',
+  '320',
+  '330',
+  '352',
+  '362',
+  '801',
+  '802',
   'XXC',
   'XXR',
+]);
+
+const TRF26_ONLY_TAGS = new Set([
+  '###',
+  '142',
+  '152',
+  '162',
+  '172',
+  '182',
+  '192',
+  '202',
+  '212',
+  '222',
+  '250',
+  '260',
+  '299',
+  '300',
+  '310',
+  '320',
+  '330',
+  '352',
+  '362',
+  '801',
+  '802',
 ]);
 
 const VALID_RESULT_CODES = new Set<ResultCode>([
@@ -250,9 +295,17 @@ function parsePlayerLine(
   };
 }
 
-function detectVersion(): Version {
-  // TRF26 heuristics deferred — all content treated as TRF16 for now
-  // TODO: detect TRF26 from content once the spec stabilises
+function detectVersion(lines: string[]): Version {
+  for (const line of lines) {
+    const tag = line.slice(0, 3);
+    if (TRF26_ONLY_TAGS.has(tag)) {
+      return 'TRF26';
+    }
+    // NRS record: exactly 3 uppercase letters not already known
+    if (/^[A-Z]{3}$/.test(tag) && !KNOWN_HEADER_TAGS.has(tag)) {
+      return 'TRF26';
+    }
+  }
   return 'TRF16';
 }
 
@@ -272,15 +325,14 @@ export default function parse(
     return null;
   }
 
-  const version = detectVersion();
+  const lines = content.split('\n');
+  const version = detectVersion(lines);
 
   const tournament: Tournament = {
     players: [],
     rounds: 0,
     version,
   };
-
-  const lines = content.split('\n');
 
   // Track the byte offset of the start of each line within `content`.
   // Used to report accurate `offset` values in ParseWarning/ParseError.
@@ -291,6 +343,11 @@ export default function parse(
     const tag = line.slice(0, 3);
 
     switch (tag) {
+      case '###': {
+        tournament.comments ??= [];
+        tournament.comments.push(line.slice(4));
+        break;
+      }
       case '001': {
         tournament.players.push(
           parsePlayerLine(line, lineNumber, lineOffset, options?.onWarning),
