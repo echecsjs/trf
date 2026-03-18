@@ -14,6 +14,7 @@ import {
 } from './columns.js';
 
 import type {
+  AbnormalPoints,
   NationalRating,
   ParseError,
   ParseOptions,
@@ -51,6 +52,7 @@ const KNOWN_HEADER_TAGS = new Set([
   '202',
   '212',
   '222',
+  '240',
   '250',
   '260',
   '299',
@@ -76,6 +78,7 @@ const TRF26_ONLY_TAGS = new Set([
   '202',
   '212',
   '222',
+  '240',
   '250',
   '260',
   '299',
@@ -441,6 +444,142 @@ export default function parse(
       }
       case '013': {
         // Legacy team record — recognised for backward compatibility, values not stored
+        break;
+      }
+      case '240': {
+        const typeRaw = line.slice(4, 5).trim();
+        if (typeRaw === 'F' || typeRaw === 'H' || typeRaw === 'Z') {
+          const round = Number(line.slice(6, 9).trim()) || 0;
+          const playerIds: number[] = [];
+          for (let pos = 10; pos < line.length; pos += 5) {
+            const id = Number(line.slice(pos, pos + 4).trim());
+            if (id > 0) {playerIds.push(id);}
+          }
+          tournament.byes ??= [];
+          tournament.byes.push({ playerIds, round, type: typeRaw });
+        }
+        break;
+      }
+      case '250': {
+        const matchPoints250 = Number(line.slice(4, 8).trim()) || 0;
+        const gamePoints250 = Number(line.slice(9, 13).trim()) || 0;
+        const firstRound250 = Number(line.slice(14, 17).trim()) || 0;
+        const lastRound250 = Number(line.slice(18, 21).trim()) || 0;
+        const firstPlayerId250 = Number(line.slice(22, 26).trim()) || 0;
+        const lastPlayerId250 = Number(line.slice(27, 31).trim()) || 0;
+        tournament.acceleratedRounds ??= [];
+        tournament.acceleratedRounds.push({
+          firstPlayerId: firstPlayerId250,
+          firstRound: firstRound250,
+          gamePoints: gamePoints250,
+          lastPlayerId: lastPlayerId250,
+          lastRound: lastRound250,
+          matchPoints: matchPoints250,
+        });
+        break;
+      }
+      case '260': {
+        const firstRound260 = Number(line.slice(4, 7).trim()) || 0;
+        const lastRound260 = Number(line.slice(8, 11).trim()) || 0;
+        const playerIds260: number[] = [];
+        for (let pos = 12; pos < line.length; pos += 5) {
+          const id = Number(line.slice(pos, pos + 4).trim());
+          if (id > 0) {playerIds260.push(id);}
+        }
+        tournament.prohibitedPairings ??= [];
+        tournament.prohibitedPairings.push({
+          firstRound: firstRound260,
+          lastRound: lastRound260,
+          playerIds: playerIds260,
+        });
+        break;
+      }
+      case '299': {
+        const typeRaw299 = line.slice(4, 5);
+        const validTypes299 = new Set([
+          ' ',
+          '+',
+          '-',
+          'D',
+          'F',
+          'H',
+          'L',
+          'W',
+          'Z',
+        ]);
+        const type299 = validTypes299.has(typeRaw299)
+          ? (typeRaw299 as AbnormalPoints['type'])
+          : ' ';
+        const matchPoints299 = Number(line.slice(7, 11).trim()) || 0;
+        const gamePoints299 = Number(line.slice(13, 17).trim()) || 0;
+        const round299 = Number(line.slice(19, 22).trim()) || 0;
+        const playerIds299: number[] = [];
+        for (let pos = 23; pos < line.length; pos += 5) {
+          const id = Number(line.slice(pos, pos + 4).trim());
+          if (id > 0) {playerIds299.push(id);}
+        }
+        tournament.abnormalPoints ??= [];
+        tournament.abnormalPoints.push({
+          gamePoints: gamePoints299,
+          matchPoints: matchPoints299,
+          playerIds: playerIds299,
+          round: round299,
+          type: type299,
+        });
+        break;
+      }
+      case '300': {
+        const round300 = Number(line.slice(4, 7).trim()) || 0;
+        const teamId300 = Number(line.slice(8, 11).trim()) || 0;
+        const opponentTeamId300 = Number(line.slice(12, 15).trim()) || 0;
+        const playerIds300: (number | null)[] = [];
+        for (let pos = 16; pos < line.length; pos += 5) {
+          const raw300 = line.slice(pos, pos + 4).trim();
+          const id300 = Number(raw300);
+          // eslint-disable-next-line unicorn/no-null
+          playerIds300.push(raw300 === '' || id300 === 0 ? null : id300);
+        }
+        tournament.outOfOrderLineups ??= [];
+        tournament.outOfOrderLineups.push({
+          opponentTeamId: opponentTeamId300,
+          playerIds: playerIds300,
+          round: round300,
+          teamId: teamId300,
+        });
+        break;
+      }
+      case '320': {
+        const matchPoints320 = Number(line.slice(4, 8).trim()) || 0;
+        const gamePoints320 = Number(line.slice(9, 13).trim()) || 0;
+        const teamIdPerRound320: (number | null)[] = [];
+        for (let pos = 14; pos < line.length; pos += 4) {
+          const raw320 = line.slice(pos, pos + 3).trim();
+          if (raw320 === '') {break;}
+          const id320 = Number(raw320);
+          // eslint-disable-next-line unicorn/no-null
+          teamIdPerRound320.push(id320 === 0 ? null : id320);
+        }
+        tournament.teamPairingAllocatedByes = {
+          gamePoints: gamePoints320,
+          matchPoints: matchPoints320,
+          teamIdPerRound: teamIdPerRound320,
+        };
+        break;
+      }
+      case '330': {
+        const typeRaw330 = line.slice(4, 6);
+        if (typeRaw330 === '+-' || typeRaw330 === '-+' || typeRaw330 === '--') {
+          const round330 = Number(line.slice(7, 10).trim()) || 0;
+          const whiteTeamId330 = Number(line.slice(11, 14).trim()) || 0;
+          const blackTeamId330 = Number(line.slice(15, 18).trim()) || 0;
+          tournament.forfeitedMatches ??= [];
+          tournament.forfeitedMatches.push({
+            blackTeamId: blackTeamId330,
+            round: round330,
+            type: typeRaw330,
+            whiteTeamId: whiteTeamId330,
+          });
+        }
         break;
       }
       case '310': {

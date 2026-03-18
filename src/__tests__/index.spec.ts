@@ -1209,3 +1209,246 @@ describe('stringify — TRF26 features', () => {
     expect(stringify(t)).toContain('152 B');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bye records (240)
+// ---------------------------------------------------------------------------
+describe('parse — bye records (240)', () => {
+  const BYE_INPUT = '### trf26\n012 T\nXXR 3\n240 H 003  026  047\n';
+
+  it('parses bye record into byes array', () => {
+    expect(parse(BYE_INPUT)?.byes).toHaveLength(1);
+  });
+
+  it('parses bye type', () => {
+    expect(parse(BYE_INPUT)?.byes?.[0]?.type).toBe('H');
+  });
+
+  it('parses bye round', () => {
+    expect(parse(BYE_INPUT)?.byes?.[0]?.round).toBe(3);
+  });
+
+  it('parses bye playerIds', () => {
+    expect(parse(BYE_INPUT)?.byes?.[0]?.playerIds).toEqual([26, 47]);
+  });
+});
+
+describe('parse — prohibited pairings (260)', () => {
+  const PP_INPUT = '### trf26\n012 T\nXXR 2\n260 001 002  125  180  216\n';
+
+  it('parses prohibited pairing record', () => {
+    expect(parse(PP_INPUT)?.prohibitedPairings).toHaveLength(1);
+  });
+
+  it('parses firstRound', () => {
+    expect(parse(PP_INPUT)?.prohibitedPairings?.[0]?.firstRound).toBe(1);
+  });
+
+  it('parses lastRound', () => {
+    expect(parse(PP_INPUT)?.prohibitedPairings?.[0]?.lastRound).toBe(2);
+  });
+
+  it('parses playerIds', () => {
+    expect(parse(PP_INPUT)?.prohibitedPairings?.[0]?.playerIds).toEqual([
+      125, 180, 216,
+    ]);
+  });
+});
+
+describe('parse — accelerated rounds (250)', () => {
+  const ACC_INPUT =
+    '### trf26\n012 T\nXXR 9\n250 00.0 02.0 001 003 0001 0090\n';
+
+  it('parses accelerated round record', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds).toHaveLength(1);
+  });
+
+  it('parses gamePoints', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds?.[0]?.gamePoints).toBe(2);
+  });
+
+  it('parses firstRound', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds?.[0]?.firstRound).toBe(1);
+  });
+
+  it('parses lastRound', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds?.[0]?.lastRound).toBe(3);
+  });
+
+  it('parses firstPlayerId', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds?.[0]?.firstPlayerId).toBe(1);
+  });
+
+  it('parses lastPlayerId', () => {
+    expect(parse(ACC_INPUT)?.acceleratedRounds?.[0]?.lastPlayerId).toBe(90);
+  });
+});
+
+describe('parse — forfeited matches (330)', () => {
+  const FM_INPUT = '### trf26\n012 T\nXXR 4\n330 +- 004 023 047\n';
+
+  it('parses forfeited match record', () => {
+    expect(parse(FM_INPUT)?.forfeitedMatches).toHaveLength(1);
+  });
+
+  it('parses forfeit type', () => {
+    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.type).toBe('+-');
+  });
+
+  it('parses round', () => {
+    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.round).toBe(4);
+  });
+
+  it('parses whiteTeamId', () => {
+    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.whiteTeamId).toBe(23);
+  });
+
+  it('parses blackTeamId', () => {
+    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.blackTeamId).toBe(47);
+  });
+});
+
+describe('parse — out-of-order lineups (300)', () => {
+  const OOO_INPUT =
+    '### trf26\n012 T\nXXR 8\n300 008 021 047 0058 0203 0105 0162\n';
+
+  it('parses out-of-order lineup record', () => {
+    expect(parse(OOO_INPUT)?.outOfOrderLineups).toHaveLength(1);
+  });
+
+  it('parses round', () => {
+    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.round).toBe(8);
+  });
+
+  it('parses teamId', () => {
+    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.teamId).toBe(21);
+  });
+
+  it('parses opponentTeamId', () => {
+    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.opponentTeamId).toBe(47);
+  });
+
+  it('parses playerIds including null for unoccupied', () => {
+    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.playerIds).toEqual([
+      58, 203, 105, 162,
+    ]);
+  });
+});
+
+describe('parse — team PAB (320)', () => {
+  const PAB_INPUT = '### trf26\n012 T\nXXR 4\n320 01.0 02.0 000 000 050 049\n';
+
+  it('parses team PAB record', () => {
+    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes).toBeDefined();
+  });
+
+  it('parses matchPoints', () => {
+    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.matchPoints).toBe(1);
+  });
+
+  it('parses gamePoints', () => {
+    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.gamePoints).toBe(2);
+  });
+
+  it('parses teamIdPerRound with null for 000', () => {
+    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.teamIdPerRound).toEqual([
+      // eslint-disable-next-line unicorn/no-null
+      null,
+      // eslint-disable-next-line unicorn/no-null
+      null,
+      50,
+      49,
+    ]);
+  });
+});
+
+describe('parse — abnormal points (299)', () => {
+  const ABN_INPUT = '### trf26\n012 T\nXXR 2\n299 +   2.0   2.5\n';
+
+  it('parses abnormal points record', () => {
+    expect(parse(ABN_INPUT)?.abnormalPoints).toHaveLength(1);
+  });
+
+  it('parses type', () => {
+    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.type).toBe('+');
+  });
+
+  it('parses matchPoints', () => {
+    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.matchPoints).toBe(2);
+  });
+
+  it('parses gamePoints', () => {
+    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.gamePoints).toBe(2.5);
+  });
+});
+
+describe('stringify — bye records (240)', () => {
+  it('emits 240 records for TRF26', () => {
+    const t: Tournament = {
+      byes: [{ playerIds: [26, 47], round: 3, type: 'H' }],
+      players: [],
+      rounds: 3,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toMatch(/^240/m);
+  });
+
+  it('does not emit 240 for TRF16', () => {
+    const t: Tournament = {
+      byes: [{ playerIds: [26], round: 1, type: 'H' }],
+      players: [],
+      rounds: 1,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toMatch(/^240/m);
+  });
+});
+
+describe('stringify — prohibited pairings (260)', () => {
+  it('emits 260 records for TRF26', () => {
+    const t: Tournament = {
+      players: [],
+      prohibitedPairings: [
+        { firstRound: 1, lastRound: 2, playerIds: [125, 180] },
+      ],
+      rounds: 2,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toMatch(/^260/m);
+  });
+});
+
+describe('stringify — accelerated rounds (250)', () => {
+  it('emits 250 records for TRF26', () => {
+    const t: Tournament = {
+      acceleratedRounds: [
+        {
+          firstPlayerId: 1,
+          firstRound: 1,
+          gamePoints: 2,
+          lastPlayerId: 90,
+          lastRound: 3,
+          matchPoints: 0,
+        },
+      ],
+      players: [],
+      rounds: 9,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toMatch(/^250/m);
+  });
+});
+
+describe('stringify — forfeited matches (330)', () => {
+  it('emits 330 records for TRF26', () => {
+    const t: Tournament = {
+      forfeitedMatches: [
+        { blackTeamId: 47, round: 4, type: '+-', whiteTeamId: 23 },
+      ],
+      players: [],
+      rounds: 4,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toMatch(/^330/m);
+  });
+});

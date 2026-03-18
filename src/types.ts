@@ -86,22 +86,78 @@ interface Team {
   strengthFactor?: number;
 }
 
+interface AcceleratedRound {
+  firstPlayerId: number;
+  firstRound: number;
+  gamePoints: number;
+  lastPlayerId: number;
+  lastRound: number;
+  matchPoints: number;
+}
+
+interface AbnormalPoints {
+  gamePoints: number;
+  matchPoints: number;
+  playerIds: number[];
+  round: number;
+  type: ' ' | '+' | '-' | 'D' | 'F' | 'H' | 'L' | 'W' | 'Z';
+}
+
+interface Bye {
+  playerIds: number[];
+  round: number;
+  type: 'F' | 'H' | 'Z';
+}
+
+interface ForfeitedMatch {
+  blackTeamId: number;
+  round: number;
+  type: '--' | '-+' | '+-';
+  whiteTeamId: number;
+}
+
+interface OutOfOrderLineup {
+  opponentTeamId: number;
+  playerIds: (number | null)[];
+  round: number;
+  teamId: number;
+}
+
+interface ProhibitedPairing {
+  firstRound: number;
+  lastRound: number;
+  playerIds: number[];
+}
+
+interface TeamPairingAllocatedBye {
+  gamePoints: number;
+  matchPoints: number;
+  teamIdPerRound: (number | null)[];
+}
+
 interface Tournament {
+  acceleratedRounds?: AcceleratedRound[];
+  abnormalPoints?: AbnormalPoints[];
+  byes?: Bye[];
   chiefArbiter?: string;
   city?: string;
   comments?: string[];
   deputyArbiters?: string[];
   endDate?: string;
   federation?: string;
+  forfeitedMatches?: ForfeitedMatch[];
   initialColour?: 'B' | 'W';
   name?: string;
   numberOfPlayers?: number;
   numberOfRatedPlayers?: number;
   numberOfTeams?: number;
+  outOfOrderLineups?: OutOfOrderLineup[];
   pairingController?: string;
   players: Player[];
+  prohibitedPairings?: ProhibitedPairing[];
   rounds: number;
   startDate?: string;
+  teamPairingAllocatedByes?: TeamPairingAllocatedBye;
   teams?: Team[];
   timeControl?: string;
   tournamentType?: string;
@@ -109,16 +165,23 @@ interface Tournament {
 }
 
 export type {
+  AcceleratedRound,
+  AbnormalPoints,
+  Bye,
+  ForfeitedMatch,
   NationalRating,
+  OutOfOrderLineup,
   ParseError,
   ParseOptions,
   ParseWarning,
   Player,
+  ProhibitedPairing,
   ResultCode,
   RoundResult,
   Sex,
   StringifyOptions,
   Team,
+  TeamPairingAllocatedBye,
   Title,
   Tournament,
   Version,

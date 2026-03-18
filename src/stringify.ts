@@ -251,6 +251,85 @@ export default function stringify(
     }
   }
 
+  // 240 — Bye records (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const bye of tournament.byes ?? []) {
+      const playerPart = bye.playerIds
+        .map((id) => String(id).padStart(4))
+        .join('  ');
+      lines.push(
+        `240 ${bye.type} ${String(bye.round).padStart(3)}  ${playerPart}`,
+      );
+    }
+  }
+
+  // 250 — Accelerated rounds (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const accumulator of tournament.acceleratedRounds ?? []) {
+      lines.push(
+        `250 ${accumulator.matchPoints.toFixed(1).padStart(4)} ${accumulator.gamePoints.toFixed(1).padStart(4)} ${String(accumulator.firstRound).padStart(3)} ${String(accumulator.lastRound).padStart(3)} ${String(accumulator.firstPlayerId).padStart(4)} ${String(accumulator.lastPlayerId).padStart(4)}`,
+      );
+    }
+  }
+
+  // 260 — Prohibited pairings (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const pp of tournament.prohibitedPairings ?? []) {
+      const idPart = pp.playerIds
+        .map((id) => String(id).padStart(4))
+        .join('  ');
+      lines.push(
+        `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)}  ${idPart}`,
+      );
+    }
+  }
+
+  // 299 — Abnormal points (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const ab of tournament.abnormalPoints ?? []) {
+      const roundPart = ab.round === 0 ? '   ' : String(ab.round).padStart(3);
+      const idPart =
+        ab.playerIds.length === 0
+          ? ''
+          : '  ' + ab.playerIds.map((id) => String(id).padStart(4)).join('  ');
+      lines.push(
+        `299 ${ab.type}  ${ab.matchPoints.toFixed(1).padStart(4)}   ${ab.gamePoints.toFixed(1).padStart(4)}   ${roundPart}${idPart}`,
+      );
+    }
+  }
+
+  // 300 — Out-of-order lineups (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const ool of tournament.outOfOrderLineups ?? []) {
+      const idPart = ool.playerIds
+        .map((id) => (id === null ? '0000' : String(id).padStart(4)))
+        .join(' ');
+      lines.push(
+        `300 ${String(ool.round).padStart(3)} ${String(ool.teamId).padStart(3)} ${String(ool.opponentTeamId).padStart(3)} ${idPart}`,
+      );
+    }
+  }
+
+  // 320 — Team PAB (TRF26 only)
+  if (tournament.version === 'TRF26' && tournament.teamPairingAllocatedByes !== undefined) {
+      const pab = tournament.teamPairingAllocatedByes;
+      const roundParts = pab.teamIdPerRound
+        .map((id) => (id === null ? '000' : String(id).padStart(3)))
+        .join(' ');
+      lines.push(
+        `320 ${pab.matchPoints.toFixed(1).padStart(4)} ${pab.gamePoints.toFixed(1).padStart(4)} ${roundParts}`,
+      );
+    }
+
+  // 330 — Forfeited matches (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const fm of tournament.forfeitedMatches ?? []) {
+      lines.push(
+        `330 ${fm.type} ${String(fm.round).padStart(3)} ${String(fm.whiteTeamId).padStart(3)} ${String(fm.blackTeamId).padStart(3)}`,
+      );
+    }
+  }
+
   // Team records (310) — TRF26 only
   if (tournament.version === 'TRF26') {
     for (const team of tournament.teams ?? []) {
