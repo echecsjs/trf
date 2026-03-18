@@ -41,11 +41,24 @@ interface StringifyOptions {
   onWarning?: (warning: ParseWarning) => void;
 }
 
+interface NationalRating {
+  birthDate?: string;
+  classification?: string;
+  federation: string;
+  name?: string;
+  nationalId?: string;
+  origin?: string;
+  pairingNumber: number;
+  rating: number;
+  sex?: Sex;
+}
+
 interface Player {
   birthDate?: string;
   federation?: string;
   fideId?: string;
   name: string;
+  nationalRatings?: NationalRating[];
   pairingNumber: number;
   points: number;
   rank: number;
@@ -84,6 +97,7 @@ interface Tournament {
 }
 
 export type {
+  NationalRating,
   ParseError,
   ParseOptions,
   ParseWarning,

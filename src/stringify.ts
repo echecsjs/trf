@@ -203,5 +203,53 @@ export default function stringify(
     lines.push(stringifyPlayerLine(player, index, options?.onWarning));
   }
 
+  // NRS records — emitted after all 001 records, TRF26 only
+  if (tournament.version === 'TRF26') {
+    for (const player of tournament.players) {
+      for (const nrs of player.nationalRatings ?? []) {
+        const buf: string[] = Array.from({ length: COL_RANK + 5 }, () => ' ');
+        // Federation code as record type (3 chars)
+        writeAt(buf, 0, nrs.federation.slice(0, 3));
+        writeAt(
+          buf,
+          COL_PAIRING_NUMBER,
+          pad(String(nrs.pairingNumber), 4, 'right'),
+        );
+        if (nrs.sex !== undefined) {
+          buf[COL_SEX] = nrs.sex;
+        }
+        if (nrs.classification !== undefined) {
+          writeAt(
+            buf,
+            COL_TITLE,
+            pad(nrs.classification.slice(0, 3), 3, 'left'),
+          );
+        }
+        if (nrs.name !== undefined) {
+          writeAt(buf, COL_NAME, pad(nrs.name.slice(0, 33), 33, 'left'));
+        }
+        writeAt(buf, COL_RATING, pad(String(nrs.rating), 4, 'right'));
+        if (nrs.origin !== undefined) {
+          writeAt(buf, COL_FEDERATION, pad(nrs.origin.slice(0, 3), 3, 'left'));
+        }
+        if (nrs.nationalId !== undefined) {
+          writeAt(
+            buf,
+            COL_FIDE_ID,
+            pad(nrs.nationalId.slice(0, 11), 11, 'left'),
+          );
+        }
+        if (nrs.birthDate !== undefined) {
+          writeAt(
+            buf,
+            COL_BIRTH_DATE,
+            pad(nrs.birthDate.slice(0, 10), 10, 'left'),
+          );
+        }
+        lines.push(buf.join('').trimEnd());
+      }
+    }
+  }
+
   return lines.join('\n');
 }

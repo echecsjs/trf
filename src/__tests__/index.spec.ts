@@ -768,6 +768,105 @@ describe('parse — comment lines', () => {
 });
 
 // ---------------------------------------------------------------------------
+// NRS records
+// ---------------------------------------------------------------------------
+describe('parse — NRS records', () => {
+  const NRS_INPUT =
+    [
+      '### trf26',
+      '012 T',
+      'XXR 1',
+      '001    1 mGM  Kasparov, Garry                   2851 RUS 4100018363   1963-04-13 8.5    1',
+      'RUS    1                                         2851                              ',
+    ].join('\n') + '\n';
+
+  it('parses NRS record into player.nationalRatings', () => {
+    const player = parse(NRS_INPUT)?.players[0];
+    expect(player?.nationalRatings).toHaveLength(1);
+  });
+
+  it('parses NRS federation code', () => {
+    expect(parse(NRS_INPUT)?.players[0]?.nationalRatings?.[0]?.federation).toBe(
+      'RUS',
+    );
+  });
+
+  it('parses NRS rating', () => {
+    expect(parse(NRS_INPUT)?.players[0]?.nationalRatings?.[0]?.rating).toBe(
+      2851,
+    );
+  });
+
+  it('parses NRS pairingNumber', () => {
+    expect(
+      parse(NRS_INPUT)?.players[0]?.nationalRatings?.[0]?.pairingNumber,
+    ).toBe(1);
+  });
+
+  it('does not emit onWarning for NRS records', () => {
+    const onWarning = vi.fn();
+    parse(NRS_INPUT, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+
+  it('NRS record with no matching player is silently ignored', () => {
+    const onWarning = vi.fn();
+    const input =
+      '### trf26\n012 T\nXXR 1\nRUS   99                                         2851\n';
+    const result = parse(input, { onWarning });
+    expect(result?.players).toHaveLength(0);
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+function playerWithNRS(): Tournament {
+  return {
+    players: [
+      {
+        name: 'Kasparov, Garry',
+        nationalRatings: [
+          { federation: 'RUS', pairingNumber: 1, rating: 2851 },
+        ],
+        pairingNumber: 1,
+        points: 8.5,
+        rank: 1,
+        results: [],
+      },
+    ],
+    rounds: 1,
+    version: 'TRF26' as const,
+  };
+}
+
+describe('stringify — NRS records', () => {
+  it('emits NRS records after 001 lines when version is TRF26', () => {
+    const lines = stringify(playerWithNRS()).split('\n');
+    const nrsLine = lines.find((l) => l.startsWith('RUS'));
+    expect(nrsLine).toBeDefined();
+  });
+
+  it('NRS line contains the national rating', () => {
+    const lines = stringify(playerWithNRS()).split('\n');
+    const nrsLine = lines.find((l) => l.startsWith('RUS'));
+    expect(nrsLine).toContain('2851');
+  });
+
+  it('NRS line comes after the 001 line', () => {
+    const lines = stringify(playerWithNRS())
+      .split('\n')
+      .filter((l) => l.length > 0);
+    const p001Index = lines.findIndex((l) => l.startsWith('001'));
+    const nrsIndex = lines.findIndex((l) => l.startsWith('RUS'));
+    expect(nrsIndex).toBeGreaterThan(p001Index);
+  });
+
+  it('does not emit NRS records for TRF16', () => {
+    const t = { ...playerWithNRS(), version: 'TRF16' as const };
+    expect(stringify(t)).not.toMatch(/^RUS/m);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Stringify tests
 // ---------------------------------------------------------------------------
 describe('stringify — header tags', () => {
