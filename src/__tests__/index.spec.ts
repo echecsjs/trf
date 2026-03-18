@@ -1015,6 +1015,112 @@ describe('parse — TRF26 tags', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Team records (310 and legacy 013)
+// ---------------------------------------------------------------------------
+describe('parse — team records (310)', () => {
+  const TEAM_INPUT =
+    [
+      '### trf26',
+      '012 T',
+      'XXR 2',
+      '310   1 India                            IND     2486   15.0   28.0  11     1    5   15   28   44',
+      '310   2 Ukraine                          UKR     2478   14.0   26.5  14     2    4   20   27   22',
+    ].join('\n') + '\n';
+
+  it('parses teams array with correct length', () => {
+    expect(parse(TEAM_INPUT)?.teams).toHaveLength(2);
+  });
+
+  it('parses team pairingNumber', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.pairingNumber).toBe(1);
+  });
+
+  it('parses team name', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.name).toBe('India');
+  });
+
+  it('parses team nickname', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.nickname).toBe('IND');
+  });
+
+  it('parses team matchPoints', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.matchPoints).toBe(15);
+  });
+
+  it('parses team gamePoints', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.gamePoints).toBe(28);
+  });
+
+  it('parses team rank', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.rank).toBe(11);
+  });
+
+  it('parses team playerIds', () => {
+    expect(parse(TEAM_INPUT)?.teams?.[0]?.playerIds).toEqual([
+      1, 5, 15, 28, 44,
+    ]);
+  });
+});
+
+describe('parse — legacy team records (013)', () => {
+  const LEGACY_INPUT =
+    [
+      '012 T',
+      'XXR 2',
+      '013 India                            0001 0005 0015',
+    ].join('\n') + '\n';
+
+  it('parses legacy 013 records without error', () => {
+    const result = parse(LEGACY_INPUT);
+    expect(result).not.toBeNull();
+  });
+
+  it('does not emit onWarning for 013 records', () => {
+    const onWarning = vi.fn();
+    parse(LEGACY_INPUT, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+function teamTournament(): Tournament {
+  return {
+    players: [],
+    rounds: 2,
+    teams: [
+      {
+        gamePoints: 28,
+        matchPoints: 15,
+        name: 'India',
+        nickname: 'IND',
+        pairingNumber: 1,
+        playerIds: [1, 5, 15, 28, 44],
+        rank: 11,
+      },
+    ],
+    version: 'TRF26' as const,
+  };
+}
+
+describe('stringify — team records', () => {
+  it('emits 310 records for TRF26', () => {
+    expect(stringify(teamTournament())).toMatch(/^310/m);
+  });
+
+  it('does not emit 310 records for TRF16', () => {
+    const t = { ...teamTournament(), version: 'TRF16' as const };
+    expect(stringify(t)).not.toMatch(/^310/m);
+  });
+
+  it('stringified 310 line contains team name', () => {
+    expect(stringify(teamTournament())).toContain('India');
+  });
+
+  it('stringified 310 line contains team rank', () => {
+    expect(stringify(teamTournament())).toMatch(/310.*11/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TRF26 stringify features
 // ---------------------------------------------------------------------------
 describe('stringify — TRF26 features', () => {

@@ -22,6 +22,7 @@ import type {
   ResultCode,
   RoundResult,
   Sex,
+  Team,
   Title,
   Tournament,
   Version,
@@ -54,7 +55,6 @@ const KNOWN_HEADER_TAGS = new Set([
   '260',
   '299',
   '300',
-  '310',
   '320',
   '330',
   '352',
@@ -437,6 +437,49 @@ export default function parse(
       }
       case 'XXR': {
         tournament.rounds = Number(line.slice(4).trim()) || 0;
+        break;
+      }
+      case '013': {
+        // Legacy team record — recognised for backward compatibility, values not stored
+        break;
+      }
+      case '310': {
+        const pairingNumber = Number(line.slice(4, 7).trim()) || 0;
+        const name = line.slice(8, 40).trim();
+        const nickname = line.slice(41, 46).trim() || undefined;
+        const strengthFactorRaw = line.slice(47, 53).trim();
+        const strengthFactor =
+          strengthFactorRaw.length > 0
+            ? Number(strengthFactorRaw) || undefined
+            : undefined;
+        const matchPoints = Number(line.slice(54, 60).trim()) || 0;
+        const gamePoints = Number(line.slice(61, 67).trim()) || 0;
+        const rank = Number(line.slice(68, 71).trim()) || 0;
+        const playerIds: number[] = [];
+        for (let pos = 73; pos < line.length; pos += 5) {
+          const id = Number(line.slice(pos, pos + 4).trim());
+          if (id > 0) {
+            playerIds.push(id);
+          }
+        }
+        if (pairingNumber > 0) {
+          const team: Team = {
+            gamePoints,
+            matchPoints,
+            name,
+            pairingNumber,
+            playerIds,
+            rank,
+          };
+          if (nickname !== undefined) {
+            team.nickname = nickname;
+          }
+          if (strengthFactor !== undefined) {
+            team.strengthFactor = strengthFactor;
+          }
+          tournament.teams ??= [];
+          tournament.teams.push(team);
+        }
         break;
       }
       default: {

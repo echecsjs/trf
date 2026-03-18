@@ -75,6 +75,17 @@ interface RoundResult {
   round: number;
 }
 
+interface Team {
+  gamePoints: number;
+  matchPoints: number;
+  name: string;
+  nickname?: string;
+  pairingNumber: number;
+  playerIds: number[];
+  rank: number;
+  strengthFactor?: number;
+}
+
 interface Tournament {
   chiefArbiter?: string;
   city?: string;
@@ -91,6 +102,7 @@ interface Tournament {
   players: Player[];
   rounds: number;
   startDate?: string;
+  teams?: Team[];
   timeControl?: string;
   tournamentType?: string;
   version: Version;
@@ -106,6 +118,7 @@ export type {
   RoundResult,
   Sex,
   StringifyOptions,
+  Team,
   Title,
   Tournament,
   Version,

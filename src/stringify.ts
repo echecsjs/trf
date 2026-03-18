@@ -251,5 +251,38 @@ export default function stringify(
     }
   }
 
+  // Team records (310) — TRF26 only
+  if (tournament.version === 'TRF26') {
+    for (const team of tournament.teams ?? []) {
+      const buf: string[] = Array.from({ length: 72 }, () => ' ');
+      buf[0] = '3';
+      buf[1] = '1';
+      buf[2] = '0';
+      writeAt(buf, 4, pad(String(team.pairingNumber), 3, 'right'));
+      writeAt(buf, 8, pad(team.name.slice(0, 32), 32, 'left'));
+      if (team.nickname !== undefined) {
+        writeAt(buf, 41, pad(team.nickname.slice(0, 5), 5, 'left'));
+      }
+      if (team.strengthFactor !== undefined) {
+        writeAt(
+          buf,
+          47,
+          pad(String(team.strengthFactor).slice(0, 6), 6, 'left'),
+        );
+      }
+      writeAt(buf, 54, pad(team.matchPoints.toFixed(1), 6, 'right'));
+      writeAt(buf, 61, pad(team.gamePoints.toFixed(1), 6, 'right'));
+      writeAt(buf, 68, pad(String(team.rank), 3, 'right'));
+      for (const [index, id] of team.playerIds.entries()) {
+        const pos = 73 + index * 5;
+        while (buf.length < pos + 4) {
+          buf.push(' ');
+        }
+        writeAt(buf, pos, pad(String(id), 4, 'right'));
+      }
+      lines.push(buf.join('').trimEnd());
+    }
+  }
+
   return lines.join('\n');
 }
