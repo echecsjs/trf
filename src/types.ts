@@ -1,4 +1,16 @@
-type ResultCode = '+' | '-' | '0' | '1' | '=' | 'F' | 'H' | 'U' | 'Z';
+type ResultCode =
+  | '+'
+  | '-'
+  | '0'
+  | '1'
+  | '='
+  | 'D'
+  | 'F'
+  | 'H'
+  | 'L'
+  | 'U'
+  | 'W'
+  | 'Z';
 
 type Sex = 'm' | 'w';
 

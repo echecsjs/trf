@@ -845,6 +845,48 @@ describe('stringify — header tags', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TRF26 result codes (W, D, L — unrated games)
+// ---------------------------------------------------------------------------
+
+// Columns (0-indexed): 001 at 0-2, pairing at 4-7, name at 14-46 (33 chars),
+// rating at 48-51, points at 80-83, rank at 84-88, results at 91+.
+// This mirrors the layout used in the existing round result edge-case tests.
+function playerLineWithResult(result: string): string {
+  return `001    1      Test0001 Player0001               2720                             2.0    1      2 w ${result}`;
+}
+
+describe('parse — TRF26 result codes', () => {
+  it('parses W result code (unrated win)', () => {
+    const input = `### trf26\n012 T\nXXR 1\n${playerLineWithResult('W')}\n`;
+    expect(parse(input)?.players[0]?.results[0]?.result).toBe('W');
+  });
+
+  it('parses D result code (unrated draw)', () => {
+    const input = `### trf26\n012 T\nXXR 1\n${playerLineWithResult('D')}\n`;
+    expect(parse(input)?.players[0]?.results[0]?.result).toBe('D');
+  });
+
+  it('parses L result code (unrated loss)', () => {
+    const input = `### trf26\n012 T\nXXR 1\n${playerLineWithResult('L')}\n`;
+    expect(parse(input)?.players[0]?.results[0]?.result).toBe('L');
+  });
+
+  it('still emits onWarning for truly unknown result codes', () => {
+    const onWarning = vi.fn();
+    const input = `012 T\nXXR 1\n${playerLineWithResult('Q')}\n`;
+    parse(input, { onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+  });
+
+  it('W/D/L result codes do not emit onWarning', () => {
+    const onWarning = vi.fn();
+    const input = `### trf26\n012 T\nXXR 1\n${playerLineWithResult('W')}\n`;
+    parse(input, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TRF26 tag parsing
 // ---------------------------------------------------------------------------
 describe('parse — TRF26 tags', () => {

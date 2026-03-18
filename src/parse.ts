@@ -94,9 +94,12 @@ const VALID_RESULT_CODES = new Set<ResultCode>([
   '0',
   '1',
   '=',
+  'D',
   'F',
   'H',
+  'L',
   'U',
+  'W',
   'Z',
 ]);
 
