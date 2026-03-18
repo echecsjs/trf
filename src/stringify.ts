@@ -236,7 +236,7 @@ export default function stringify(
           writeAt(
             buf,
             COL_FIDE_ID,
-            pad(nrs.nationalId.slice(0, 11), 11, 'left'),
+            pad(nrs.nationalId.slice(0, 12), 12, 'left'),
           );
         }
         if (nrs.birthDate !== undefined) {

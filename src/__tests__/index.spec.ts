@@ -741,7 +741,7 @@ describe('parse — version detection', () => {
     // NRS records use the federation code as the record type (e.g. RUS, FRA)
     expect(
       parse(
-        '012 T\nXXR 1\nRUS    1                                         2851\n',
+        '012 T\nXXR 1\nRUS    1                                        2851\n',
       )?.version,
     ).toBe('TRF26');
   });
@@ -777,7 +777,7 @@ describe('parse — NRS records', () => {
       '012 T',
       'XXR 1',
       '001    1 mGM  Kasparov, Garry                   2851 RUS 4100018363   1963-04-13 8.5    1',
-      'RUS    1                                         2851                              ',
+      'RUS    1                                        2851',
     ].join('\n') + '\n';
 
   it('parses NRS record into player.nationalRatings', () => {
@@ -812,7 +812,7 @@ describe('parse — NRS records', () => {
   it('NRS record with no matching player is silently ignored', () => {
     const onWarning = vi.fn();
     const input =
-      '### trf26\n012 T\nXXR 1\nRUS   99                                         2851\n';
+      '### trf26\n012 T\nXXR 1\nRUS   99                                        2851\n';
     const result = parse(input, { onWarning });
     expect(result?.players).toHaveLength(0);
     expect(onWarning).not.toHaveBeenCalled();

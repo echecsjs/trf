@@ -446,42 +446,57 @@ export default function parse(
         if (/^[A-Z]{3}$/.test(tag) && !KNOWN_HEADER_TAGS.has(tag)) {
           const pairingNumber =
             Number(line.slice(COL_PAIRING_NUMBER, COL_SEX).trim()) || 0;
-          // Use 5 chars to tolerate one-position rating-field variance
-          const ratingRaw = line.slice(COL_RATING, COL_RATING + 5).trim();
+          const ratingRaw = line.slice(COL_RATING, COL_RATING + 4).trim();
           const rating = Number(ratingRaw);
-          if (pairingNumber > 0 && rating > 0) {
-            const player = tournament.players.find(
-              (p) => p.pairingNumber === pairingNumber,
-            );
-            if (player !== undefined) {
-              player.nationalRatings ??= [];
-              const sexRaw = line.slice(COL_SEX, COL_SEX + 1).trim();
-              const classificationRaw = line.slice(COL_TITLE, COL_NAME).trim();
-              const nameRaw = line.slice(COL_NAME, COL_RATING - 1).trim();
-              const originRaw = line
-                .slice(COL_FEDERATION, COL_FEDERATION + 3)
-                .trim();
-              const nationalIdRaw = line
-                .slice(COL_FIDE_ID, COL_BIRTH_DATE - 1)
-                .trim();
-              const birthDateRaw = line
-                .slice(COL_BIRTH_DATE, COL_POINTS)
-                .trim();
-              const nrs: NationalRating = {
-                federation: tag,
-                pairingNumber,
-                rating,
-              };
-              if (classificationRaw.length > 0)
-                {nrs.classification = classificationRaw;}
-              if (nameRaw.length > 0) {nrs.name = nameRaw;}
-              if (originRaw.length > 0) {nrs.origin = originRaw;}
-              if (nationalIdRaw.length > 0) {nrs.nationalId = nationalIdRaw;}
-              if (birthDateRaw.length > 0) {nrs.birthDate = birthDateRaw;}
-              if (VALID_SEXES.has(sexRaw as Sex)) {nrs.sex = sexRaw as Sex;}
-              player.nationalRatings.push(nrs);
+          if (pairingNumber > 0) {
+            if (rating > 0) {
+              const player = tournament.players.find(
+                (p) => p.pairingNumber === pairingNumber,
+              );
+              if (player !== undefined) {
+                player.nationalRatings ??= [];
+                const sexRaw = line.slice(COL_SEX, COL_SEX + 1).trim();
+                const classificationRaw = line
+                  .slice(COL_TITLE, COL_NAME)
+                  .trim();
+                const nameRaw = line.slice(COL_NAME, COL_RATING - 1).trim();
+                const originRaw = line
+                  .slice(COL_FEDERATION, COL_FEDERATION + 3)
+                  .trim();
+                const nationalIdRaw = line
+                  .slice(COL_FIDE_ID, COL_BIRTH_DATE - 1)
+                  .trim();
+                const birthDateRaw = line
+                  .slice(COL_BIRTH_DATE, COL_POINTS)
+                  .trim();
+                const nrs: NationalRating = {
+                  federation: tag,
+                  pairingNumber,
+                  rating,
+                };
+                if (classificationRaw.length > 0) {
+                  nrs.classification = classificationRaw;
+                }
+                if (nameRaw.length > 0) {
+                  nrs.name = nameRaw;
+                }
+                if (originRaw.length > 0) {
+                  nrs.origin = originRaw;
+                }
+                if (nationalIdRaw.length > 0) {
+                  nrs.nationalId = nationalIdRaw;
+                }
+                if (birthDateRaw.length > 0) {
+                  nrs.birthDate = birthDateRaw;
+                }
+                if (VALID_SEXES.has(sexRaw as Sex)) {
+                  nrs.sex = sexRaw as Sex;
+                }
+                player.nationalRatings.push(nrs);
+              }
             }
-            // NRS record with no matching player: silently ignore (no warning)
+            // Break for any NRS-formatted line (pairingNumber > 0), regardless
+            // of whether a matching player was found or the rating was valid.
             break;
           }
         }
