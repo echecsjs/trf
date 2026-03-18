@@ -1453,6 +1453,55 @@ describe('stringify — forfeited matches (330)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// TRF26 round-trip
+// ---------------------------------------------------------------------------
+describe('TRF26 round-trip', () => {
+  it('parse → stringify → parse produces identical Tournament for TRF26 fixture', () => {
+    const input = fixture('trf26_team');
+    const first = parse(input);
+    expect(first).not.toBeNull();
+    expect(first?.version).toBe('TRF26');
+    const reserialized = stringify(first!);
+    const second = parse(reserialized);
+    expect(second).not.toBeNull();
+    expect(second?.version).toBe('TRF26');
+    expect(second?.name).toBe(first?.name);
+    expect(second?.players).toHaveLength(first?.players.length ?? 0);
+    expect(second?.teams).toHaveLength(first?.teams?.length ?? 0);
+    expect(second?.byes).toHaveLength(first?.byes?.length ?? 0);
+    expect(second?.prohibitedPairings).toHaveLength(
+      first?.prohibitedPairings?.length ?? 0,
+    );
+  });
+
+  it('TRF26 fixture has version TRF26', () => {
+    expect(parse(fixture('trf26_team'))?.version).toBe('TRF26');
+  });
+
+  it('TRF26 fixture has correct player count', () => {
+    expect(parse(fixture('trf26_team'))?.players).toHaveLength(2);
+  });
+
+  it('TRF26 fixture has NRS records on player', () => {
+    expect(
+      parse(fixture('trf26_team'))?.players[0]?.nationalRatings,
+    ).toHaveLength(1);
+  });
+
+  it('TRF26 fixture has teams', () => {
+    expect(parse(fixture('trf26_team'))?.teams).toHaveLength(1);
+  });
+
+  it('TRF26 fixture has bye record', () => {
+    expect(parse(fixture('trf26_team'))?.byes).toHaveLength(1);
+  });
+
+  it('TRF26 fixture has prohibited pairing', () => {
+    expect(parse(fixture('trf26_team'))?.prohibitedPairings).toHaveLength(1);
+  });
+});
+
 describe('stringify round-trip — 240/260/299', () => {
   it('240 bye record survives round-trip', () => {
     const t: Tournament = {
