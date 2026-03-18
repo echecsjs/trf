@@ -373,6 +373,39 @@ describe('parse — sex and title fields', () => {
 });
 
 // ---------------------------------------------------------------------------
+// JaVaFo backward-compatible single-letter title codes
+// JaVaFo (pre-TRF16) used single lowercase letters at col 10 instead of the
+// standard 2-4 char title codes. The parser maps them for compatibility.
+// ---------------------------------------------------------------------------
+function parseJaVaFoTitle(titleChar: string): string | undefined {
+  // Place titleChar at col 10, rest of title field (cols 11-13) as spaces
+  const line = `001    1 m  ${titleChar} Test Name                        2000                             1.0    1`;
+  return parse(`012 T\nXXR 1\n${line}\n`)?.players[0]?.title;
+}
+
+describe('parse — JaVaFo single-letter title codes', () => {
+  it('maps "g" to GM', () => {
+    expect(parseJaVaFoTitle('g')).toBe('GM');
+  });
+
+  it('maps "m" to IM', () => {
+    expect(parseJaVaFoTitle('m')).toBe('IM');
+  });
+
+  it('maps "f" to FM', () => {
+    expect(parseJaVaFoTitle('f')).toBe('FM');
+  });
+
+  it('maps "w" to WIM', () => {
+    expect(parseJaVaFoTitle('w')).toBe('WIM');
+  });
+
+  it('ignores unknown single-letter code', () => {
+    expect(parseJaVaFoTitle('x')).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // XXR missing
 // ---------------------------------------------------------------------------
 describe('parse — XXR tag', () => {
@@ -483,18 +516,6 @@ describe('parse — javafo_sample2 fixture', () => {
 
   it('parses P1 sex', () => {
     expect(parse(fixture('javafo_sample2'))?.players[0]?.sex).toBe('m');
-  });
-
-  it('maps JaVaFo title "g" to GM for P1', () => {
-    expect(parse(fixture('javafo_sample2'))?.players[0]?.title).toBe('GM');
-  });
-
-  it('maps JaVaFo title "m" to IM for P2', () => {
-    expect(parse(fixture('javafo_sample2'))?.players[1]?.title).toBe('IM');
-  });
-
-  it('maps JaVaFo title "f" to FM for P3', () => {
-    expect(parse(fixture('javafo_sample2'))?.players[2]?.title).toBe('FM');
   });
 
   it('parses female player sex (P23)', () => {
