@@ -256,9 +256,9 @@ export default function stringify(
     for (const bye of tournament.byes ?? []) {
       const playerPart = bye.playerIds
         .map((id) => String(id).padStart(4))
-        .join('  ');
+        .join(' ');
       lines.push(
-        `240 ${bye.type} ${String(bye.round).padStart(3)}  ${playerPart}`,
+        `240 ${bye.type} ${String(bye.round).padStart(3)} ${playerPart}`,
       );
     }
   }
@@ -275,11 +275,9 @@ export default function stringify(
   // 260 — Prohibited pairings (TRF26 only)
   if (tournament.version === 'TRF26') {
     for (const pp of tournament.prohibitedPairings ?? []) {
-      const idPart = pp.playerIds
-        .map((id) => String(id).padStart(4))
-        .join('  ');
+      const idPart = pp.playerIds.map((id) => String(id).padStart(4)).join(' ');
       lines.push(
-        `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)}  ${idPart}`,
+        `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)} ${idPart}`,
       );
     }
   }
@@ -291,9 +289,9 @@ export default function stringify(
       const idPart =
         ab.playerIds.length === 0
           ? ''
-          : '  ' + ab.playerIds.map((id) => String(id).padStart(4)).join('  ');
+          : ' ' + ab.playerIds.map((id) => String(id).padStart(4)).join(' ');
       lines.push(
-        `299 ${ab.type}  ${ab.matchPoints.toFixed(1).padStart(4)}   ${ab.gamePoints.toFixed(1).padStart(4)}   ${roundPart}${idPart}`,
+        `299 ${ab.type}  ${ab.matchPoints.toFixed(1).padStart(4)}  ${ab.gamePoints.toFixed(1).padStart(4)}  ${roundPart}${idPart}`,
       );
     }
   }
@@ -311,15 +309,18 @@ export default function stringify(
   }
 
   // 320 — Team PAB (TRF26 only)
-  if (tournament.version === 'TRF26' && tournament.teamPairingAllocatedByes !== undefined) {
-      const pab = tournament.teamPairingAllocatedByes;
-      const roundParts = pab.teamIdPerRound
-        .map((id) => (id === null ? '000' : String(id).padStart(3)))
-        .join(' ');
-      lines.push(
-        `320 ${pab.matchPoints.toFixed(1).padStart(4)} ${pab.gamePoints.toFixed(1).padStart(4)} ${roundParts}`,
-      );
-    }
+  if (
+    tournament.version === 'TRF26' &&
+    tournament.teamPairingAllocatedByes !== undefined
+  ) {
+    const pab = tournament.teamPairingAllocatedByes;
+    const roundParts = pab.teamIdPerRound
+      .map((id) => (id === null ? '000' : String(id).padStart(3)))
+      .join(' ');
+    lines.push(
+      `320 ${pab.matchPoints.toFixed(1).padStart(4)} ${pab.gamePoints.toFixed(1).padStart(4)} ${roundParts}`,
+    );
+  }
 
   // 330 — Forfeited matches (TRF26 only)
   if (tournament.version === 'TRF26') {

@@ -136,8 +136,8 @@ interface TeamPairingAllocatedBye {
 }
 
 interface Tournament {
-  acceleratedRounds?: AcceleratedRound[];
   abnormalPoints?: AbnormalPoints[];
+  acceleratedRounds?: AcceleratedRound[];
   byes?: Bye[];
   chiefArbiter?: string;
   city?: string;

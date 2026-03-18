@@ -1452,3 +1452,50 @@ describe('stringify — forfeited matches (330)', () => {
     expect(stringify(t)).toMatch(/^330/m);
   });
 });
+
+describe('stringify round-trip — 240/260/299', () => {
+  it('240 bye record survives round-trip', () => {
+    const t: Tournament = {
+      byes: [{ playerIds: [26, 47], round: 3, type: 'H' }],
+      players: [],
+      rounds: 3,
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.byes?.[0]?.playerIds).toEqual([26, 47]);
+    expect(result?.byes?.[0]?.round).toBe(3);
+  });
+
+  it('260 prohibited pairing survives round-trip', () => {
+    const t: Tournament = {
+      players: [],
+      prohibitedPairings: [
+        { firstRound: 1, lastRound: 2, playerIds: [125, 180, 216] },
+      ],
+      rounds: 2,
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.prohibitedPairings?.[0]?.playerIds).toEqual([125, 180, 216]);
+  });
+
+  it('299 abnormal points survives round-trip', () => {
+    const t: Tournament = {
+      abnormalPoints: [
+        {
+          gamePoints: 2.5,
+          matchPoints: 2,
+          playerIds: [],
+          round: 0,
+          type: '+',
+        },
+      ],
+      players: [],
+      rounds: 2,
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.abnormalPoints?.[0]?.matchPoints).toBe(2);
+    expect(result?.abnormalPoints?.[0]?.gamePoints).toBe(2.5);
+  });
+});
