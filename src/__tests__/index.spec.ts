@@ -737,6 +737,15 @@ describe('parse — version detection', () => {
       parse('012 T\nXXR 1\n250 00.0 02.0 001 003 0001 0090\n')?.version,
     ).toBe('TRF26');
   });
+
+  it('returns TRF26 when an NRS record (3 uppercase letter tag) is present', () => {
+    // NRS records use the federation code as the record type (e.g. RUS, FRA)
+    expect(
+      parse(
+        '012 T\nXXR 1\nRUS    1                                         2851\n',
+      )?.version,
+    ).toBe('TRF26');
+  });
 });
 
 // ---------------------------------------------------------------------------
