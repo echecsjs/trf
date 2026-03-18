@@ -409,6 +409,7 @@ export default function parse(
         tournament.timeControl = line.slice(4).trim();
         break;
       }
+      // 142 is the TRF26 equivalent of XXR; if both are present, last occurrence wins.
       case '142': {
         const r = Number(line.slice(4).trim());
         if (r > 0) {
@@ -424,7 +425,10 @@ export default function parse(
         break;
       }
       case '182': {
-        tournament.pairingController = line.slice(4).trim();
+        const pc = line.slice(4).trim();
+        if (pc.length > 0) {
+          tournament.pairingController = pc;
+        }
         break;
       }
       case 'XXR': {

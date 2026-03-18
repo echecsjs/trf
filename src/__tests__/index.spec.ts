@@ -951,4 +951,14 @@ describe('stringify — TRF26 features', () => {
     };
     expect(stringify(t)).not.toContain('182');
   });
+
+  it('emits 152 B when initialColour is B', () => {
+    const t: Tournament = {
+      initialColour: 'B',
+      players: [],
+      rounds: 1,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toContain('152 B');
+  });
 });
