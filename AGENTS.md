@@ -19,6 +19,17 @@ Mirrors the API style of `@echecs/pgn`.
 
 ---
 
+## Similar Libraries
+
+Use these to cross-check output when testing:
+
+- [`fide-trf`](https://github.com/samuraitruong/fide-trf) — Node.js TRF file
+  reader.
+- [`swtparser`](https://www.npmjs.com/package/swtparser) — parser for SWT
+  Swiss-Chess Tournament files (related but different format).
+
+---
+
 ## Commands
 
 ### Build
@@ -89,6 +100,7 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 
 ## Architecture Notes
 
+- **ESM-only** — the package ships only ESM. Do not add a CJS build.
 - No runtime dependencies — keep it that way.
 - `parse()` is synchronous — do not introduce async.
 - `src/index.ts` is a re-export barrel. Logic lives in `src/parse.ts` and
@@ -97,6 +109,15 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 - `src/types.ts` contains all exported types.
 - All interface fields sorted alphabetically (`sort-keys` is an ESLint error).
 - Always use `.js` extensions on relative imports (NodeNext resolution).
+
+---
+
+## Validation
+
+Input validation is mostly provided by TypeScript's strict type system at
+compile time. There is no runtime validation library — the type signatures
+enforce correct usage. Do not add runtime type-checking guards (e.g. `typeof`
+checks, assertion functions) unless there is an explicit trust boundary.
 
 ---
 
@@ -109,8 +130,67 @@ Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
 
 ---
 
-## Publishing
+## Release Protocol
 
-Published as `@echecs/trf`. GitHub Actions auto-publishes on `version` bump in
-`package.json` on `main`. Always update `CHANGELOG.md` with version bumps. Bump
-patch for fixes, minor for new features, major for breaking changes.
+Step-by-step process for releasing a new version. CI auto-publishes to npm when
+`version` in `package.json` changes on `main`.
+
+1. **Verify the package is clean:**
+
+   ```bash
+   pnpm lint && pnpm test && pnpm build
+   ```
+
+   Do not proceed if any step fails.
+
+2. **Decide the semver level:**
+   - `patch` — bug fixes, internal refactors with no API change
+   - `minor` — new features, new exports, non-breaking additions
+   - `major` — breaking changes to the public API
+
+3. **Update `CHANGELOG.md`** following
+   [Keep a Changelog](https://keepachangelog.com) format:
+
+   ```markdown
+   ## [x.y.z] - YYYY-MM-DD
+
+   ### Added
+
+   - …
+
+   ### Changed
+
+   - …
+
+   ### Fixed
+
+   - …
+
+   ### Removed
+
+   - …
+   ```
+
+   Include only sections that apply. Use past tense.
+
+4. **Update `README.md`** if the release introduces new public API, changes
+   usage examples, or deprecates/removes existing features.
+
+5. **Bump the version:**
+
+   ```bash
+   npm version <major|minor|patch> --no-git-tag-version
+   ```
+
+6. **Commit and push:**
+
+   ```bash
+   git add package.json CHANGELOG.md README.md
+   git commit -m "release: @echecs/trf@x.y.z"
+   git push
+   ```
+
+7. **CI takes over:** GitHub Actions detects the version bump, runs format →
+   lint → test, and publishes to npm.
+
+Do not manually publish with `npm publish`.
