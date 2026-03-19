@@ -60,6 +60,7 @@
     "type": "git",
     "url": "https://github.com/mormubis/trf.git"
   },
+  "sideEffects": false,
   "scripts": {
     "build": "tsdown",
     "docs": "typedoc",
@@ -69,12 +70,12 @@
     "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
     "lint:style": "eslint \"src/**/*.{ts,tsx}\" \"*.mjs\" --fix",
     "lint:types": "tsc --noEmit --project tsconfig.json",
-    "prepare": "pnpm run build",
+    "prepare": "husky && pnpm run build",
     "test": "vitest run",
     "test:coverage": "pnpm run test --coverage",
     "test:watch": "pnpm run test --watch"
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "3.0.0"
+  "version": "3.1.0"
 }

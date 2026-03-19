@@ -1,5 +1,40 @@
 # Changelog
 
+## 3.1.0 — 2026-03-19
+
+### Added
+
+- Full TRF26 parse and stringify support. The `version` field on `Tournament` is
+  now auto-detected from file content (`'TRF16'` or `'TRF26'`).
+- New `Tournament` fields: `abnormalPoints`, `acceleratedRounds`, `byes`,
+  `comments`, `deputyArbiters`, `forfeitedMatches`, `initialColour`,
+  `numberOfPlayers`, `numberOfRatedPlayers`, `numberOfTeams`,
+  `outOfOrderLineups`, `pairingController`, `prohibitedPairings`, `roundDates`,
+  `teamPairingAllocatedByes`, `teams`, `tournamentType`.
+- New `Player.nationalRatings` field for NRS (National Rating Support) records.
+- New exported types: `AcceleratedRound`, `AbnormalPoints`, `Bye`,
+  `ForfeitedMatch`, `NationalRating`, `OutOfOrderLineup`, `ProhibitedPairing`,
+  `Team`, `TeamPairingAllocatedBye`.
+- TRF26 record types parsed and stringified: `240` (byes), `250` (accelerated
+  rounds), `260` (prohibited pairings), `299` (abnormal points), `300`
+  (out-of-order lineups), `310` (teams), `320` (team PAB), `330` (forfeited
+  matches).
+- Legacy `013` team records accepted silently for backward compatibility.
+- New result codes `'W'`, `'D'`, `'L'` (unrated games lasting less than one
+  move).
+- Round dates (`132` tag) parsed into `Tournament.roundDates` and stringified.
+- `###` comment lines collected into `Tournament.comments` and re-emitted on
+  stringify for TRF26 files.
+
+### Fixed
+
+- Tag `092` now correctly maps to `tournamentType` (was `chiefArbiter`).
+- Tag `102` now correctly maps to `chiefArbiter` (was silently ignored).
+- Tag `112` now correctly maps to `deputyArbiters` (was `timeControl`).
+- Tag `122` now correctly maps to `timeControl` (was silently ignored).
+- Tags `062`, `072`, `082` now stored as `numberOfPlayers`,
+  `numberOfRatedPlayers`, `numberOfTeams` (were silently ignored).
+
 ## 3.0.0 — 2026-03-18
 
 ### Breaking Changes
