@@ -183,6 +183,24 @@ export default function stringify(
   if (tournament.timeControl !== undefined) {
     lines.push(`122 ${tournament.timeControl}`);
   }
+  if (tournament.roundDates !== undefined && tournament.roundDates.length > 0) {
+    // Round dates occupy 10-char slots starting at col 91 (same as 001 round results).
+    const buf: string[] = Array.from(
+      { length: ROUND_RESULTS_OFFSET },
+      () => ' ',
+    );
+    buf[0] = '1';
+    buf[1] = '3';
+    buf[2] = '2';
+    for (const [index, date] of tournament.roundDates.entries()) {
+      const pos = ROUND_RESULTS_OFFSET + index * ROUND_ENTRY_LENGTH;
+      while (buf.length < pos + ROUND_ENTRY_LENGTH) {
+        buf.push(' ');
+      }
+      writeAt(buf, pos, date.slice(0, 8));
+    }
+    lines.push(buf.join('').trimEnd());
+  }
   if (tournament.rounds > 0) {
     lines.push(`XXR ${tournament.rounds}`);
   }

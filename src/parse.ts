@@ -416,6 +416,25 @@ export default function parse(
         tournament.timeControl = line.slice(4).trim();
         break;
       }
+      case '132': {
+        // Round dates: one date per round in 10-char slots starting at col 91
+        // (same offset as round results in 001 lines). Format: YY/MM/DD (8 chars).
+        const dates: string[] = [];
+        for (
+          let pos = ROUND_RESULTS_OFFSET;
+          pos < line.length;
+          pos += ROUND_ENTRY_LENGTH
+        ) {
+          const date = line.slice(pos, pos + 8).trim();
+          if (date.length > 0) {
+            dates.push(date);
+          }
+        }
+        if (dates.length > 0) {
+          tournament.roundDates = dates;
+        }
+        break;
+      }
       // 142 is the TRF26 equivalent of XXR; if both are present, last occurrence wins.
       case '142': {
         const r = Number(line.slice(4).trim());
@@ -453,7 +472,9 @@ export default function parse(
           const playerIds: number[] = [];
           for (let pos = 10; pos < line.length; pos += 5) {
             const id = Number(line.slice(pos, pos + 4).trim());
-            if (id > 0) {playerIds.push(id);}
+            if (id > 0) {
+              playerIds.push(id);
+            }
           }
           tournament.byes ??= [];
           tournament.byes.push({ playerIds, round, type: typeRaw });
@@ -484,7 +505,9 @@ export default function parse(
         const playerIds260: number[] = [];
         for (let pos = 12; pos < line.length; pos += 5) {
           const id = Number(line.slice(pos, pos + 4).trim());
-          if (id > 0) {playerIds260.push(id);}
+          if (id > 0) {
+            playerIds260.push(id);
+          }
         }
         tournament.prohibitedPairings ??= [];
         tournament.prohibitedPairings.push({
@@ -516,7 +539,9 @@ export default function parse(
         const playerIds299: number[] = [];
         for (let pos = 23; pos < line.length; pos += 5) {
           const id = Number(line.slice(pos, pos + 4).trim());
-          if (id > 0) {playerIds299.push(id);}
+          if (id > 0) {
+            playerIds299.push(id);
+          }
         }
         tournament.abnormalPoints ??= [];
         tournament.abnormalPoints.push({
@@ -554,7 +579,9 @@ export default function parse(
         const teamIdPerRound320: (number | null)[] = [];
         for (let pos = 14; pos < line.length; pos += 4) {
           const raw320 = line.slice(pos, pos + 3).trim();
-          if (raw320 === '') {break;}
+          if (raw320 === '') {
+            break;
+          }
           const id320 = Number(raw320);
           // eslint-disable-next-line unicorn/no-null
           teamIdPerRound320.push(id320 === 0 ? null : id320);

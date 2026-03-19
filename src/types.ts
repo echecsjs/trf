@@ -155,6 +155,7 @@ interface Tournament {
   pairingController?: string;
   players: Player[];
   prohibitedPairings?: ProhibitedPairing[];
+  roundDates?: string[];
   rounds: number;
   startDate?: string;
   teamPairingAllocatedByes?: TeamPairingAllocatedBye;

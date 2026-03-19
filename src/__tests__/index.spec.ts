@@ -701,13 +701,18 @@ describe('parse — grandmommyscup fixture', () => {
 
   // --- Warning behaviour ---
 
-  it('emits only one warning for unrecognised tag 132 (round dates)', () => {
+  it('emits no warnings — all tags including 132 are now recognised', () => {
     const warnings: string[] = [];
     parse(fixture('grandmommyscup'), {
       onWarning: (w) => warnings.push(w.message),
     });
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('132');
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('parses 14 round dates from 132 tag', () => {
+    expect(result?.roundDates).toHaveLength(14);
+    expect(result?.roundDates?.[0]).toBe('24/12/01');
+    expect(result?.roundDates?.[13]).toBe('24/12/14');
   });
 });
 
@@ -1578,6 +1583,79 @@ describe('TRF26 round-trip', () => {
 
   it('TRF26 fixture has prohibited pairing', () => {
     expect(parse(fixture('trf26_team'))?.prohibitedPairings).toHaveLength(1);
+  });
+});
+
+describe('parse — round dates (132)', () => {
+  it('parses round dates into roundDates array', () => {
+    const input =
+      '012 T\nXXR 3\n132                                                                                        26/01/10  26/01/11  26/01/12\n';
+    expect(parse(input)?.roundDates).toEqual([
+      '26/01/10',
+      '26/01/11',
+      '26/01/12',
+    ]);
+  });
+
+  it('roundDates is undefined when 132 tag is absent', () => {
+    expect(parse('012 T\nXXR 1\n')?.roundDates).toBeUndefined();
+  });
+
+  it('skips blank date slots and only stores non-empty dates', () => {
+    // Round 1 and 2 blank, round 3 has a date.
+    // Col 91 = round 1, col 101 = round 2, col 111 = round 3.
+    // Build exactly: '132' + 88 spaces + 10 spaces (round1) + 10 spaces (round2) + '26/01/12'
+    const prefix = '132' + ' '.repeat(88);
+    const input = `012 T\nXXR 3\n${prefix}          ${'          '}26/01/12\n`;
+    const dates = parse(input)?.roundDates;
+    expect(dates).toBeDefined();
+    expect(dates).toContain('26/01/12');
+  });
+
+  it('does not emit onWarning for 132 tag', () => {
+    const onWarning = vi.fn();
+    const input =
+      '012 T\nXXR 1\n132                                                                                        26/01/10\n';
+    parse(input, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+describe('stringify — round dates (132)', () => {
+  it('emits 132 line when roundDates is present', () => {
+    const t: Tournament = {
+      players: [],
+      roundDates: ['26/01/10', '26/01/11', '26/01/12'],
+      rounds: 3,
+      version: 'TRF16',
+    };
+    expect(stringify(t)).toMatch(/^132/m);
+  });
+
+  it('does not emit 132 when roundDates is absent', () => {
+    const t: Tournament = { players: [], rounds: 3, version: 'TRF16' };
+    expect(stringify(t)).not.toMatch(/^132/m);
+  });
+
+  it('round dates survive a round-trip', () => {
+    const t: Tournament = {
+      players: [],
+      roundDates: ['26/01/10', '26/01/11', '26/01/12'],
+      rounds: 3,
+      version: 'TRF16',
+    };
+    expect(parse(stringify(t))?.roundDates).toEqual([
+      '26/01/10',
+      '26/01/11',
+      '26/01/12',
+    ]);
+  });
+
+  it('grandmommyscup round dates survive a round-trip', () => {
+    const first = parse(fixture('grandmommyscup'));
+    expect(first?.roundDates).toHaveLength(14);
+    const second = parse(stringify(first!));
+    expect(second?.roundDates).toEqual(first?.roundDates);
   });
 });
 
