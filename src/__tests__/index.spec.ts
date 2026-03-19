@@ -580,55 +580,134 @@ describe('parse — javafo_sample2 fixture', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Real-world fixture: GrandMommysCup TRF25 sample
+// Real-world fixture: GrandMommysCup TRF26 sample
 // Source: http://tec.fide.com/wp-content/uploads/2025/01/GrandMommysCup03_trf.txt
 // FIDE Technical Commission official sample (January 2025). 249 players,
-// 50 teams, 14 rounds. Exercises many TRF25-specific record types.
-// We only assert that parsing succeeds and basic counts are correct —
-// the TRF25-specific tags are unknown to our TRF16 parser and will emit warnings.
+// 50 teams, 14 rounds. Exercises the full range of TRF26 record types.
 // ---------------------------------------------------------------------------
 describe('parse — grandmommyscup fixture', () => {
+  // Parse once and reuse across all tests in this describe block.
+  const result = parse(fixture('grandmommyscup'));
+
   it('does not return null', () => {
-    expect(parse(fixture('grandmommyscup'))).not.toBeNull();
+    expect(result).not.toBeNull();
   });
 
-  it('parses tournament name', () => {
-    expect(parse(fixture('grandmommyscup'))?.name).toBe("Grandmommy's Cup");
+  it('detects version TRF26', () => {
+    expect(result?.version).toBe('TRF26');
   });
 
-  it('parses 249 players from 001 lines', () => {
-    expect(parse(fixture('grandmommyscup'))?.players).toHaveLength(249);
+  // --- Tournament header tags ---
+
+  it('parses tournament name from 012', () => {
+    expect(result?.name).toBe("Grandmommy's Cup");
+  });
+
+  it('parses city from 022', () => {
+    expect(result?.city).toBe('Test');
+  });
+
+  it('parses tournamentType from 092', () => {
+    expect(result?.tournamentType).toBe('Team Swiss');
+  });
+
+  it('parses chiefArbiter from 102', () => {
+    expect(result?.chiefArbiter).toBe('The Chief Arbiter');
+  });
+
+  it('parses timeControl from 122', () => {
+    expect(result?.timeControl).toContain("100'x40mm");
   });
 
   it('parses rounds from 142 tag', () => {
-    // The GrandMommysCup uses tag 142 for rounds instead of XXR.
-    // Our parser now recognises 142 as a rounds tag (TRF26).
-    expect(parse(fixture('grandmommyscup'))?.rounds).toBe(14);
+    expect(result?.rounds).toBe(14);
+  });
+
+  it('parses initialColour B from 152', () => {
+    expect(result?.initialColour).toBe('B');
+  });
+
+  // --- Player records ---
+
+  it('parses 249 players from 001 lines', () => {
+    expect(result?.players).toHaveLength(249);
   });
 
   it('parses P1 name', () => {
-    expect(parse(fixture('grandmommyscup'))?.players[0]?.name).toBe(
-      'Test0001 Player0001',
-    );
+    expect(result?.players[0]?.name).toBe('Test0001 Player0001');
   });
 
   it('parses P1 rating', () => {
-    expect(parse(fixture('grandmommyscup'))?.players[0]?.rating).toBe(2586);
+    expect(result?.players[0]?.rating).toBe(2586);
   });
 
   it('parses P1 federation', () => {
-    expect(parse(fixture('grandmommyscup'))?.players[0]?.federation).toBe(
-      'IND',
-    );
+    expect(result?.players[0]?.federation).toBe('IND');
   });
 
-  it('emits onWarning for unknown TRF25 tags but does not crash', () => {
+  it('parses P1 points', () => {
+    expect(result?.players[0]?.points).toBe(8);
+  });
+
+  it('parses P1 rank', () => {
+    expect(result?.players[0]?.rank).toBe(12);
+  });
+
+  // --- Team records (310) ---
+
+  it('parses 50 teams from 310 records', () => {
+    expect(result?.teams).toHaveLength(50);
+  });
+
+  it('parses first team name', () => {
+    expect(result?.teams?.[0]?.name).toBe('India');
+  });
+
+  // --- Bye records (240) ---
+
+  it('parses bye records from 240', () => {
+    expect(result?.byes?.length).toBeGreaterThan(0);
+  });
+
+  // --- Prohibited pairings (260) ---
+
+  it('parses 3 prohibited pairing records from 260', () => {
+    expect(result?.prohibitedPairings).toHaveLength(3);
+  });
+
+  // --- Accelerated rounds (250) ---
+
+  it('parses 4 accelerated round records from 250', () => {
+    expect(result?.acceleratedRounds).toHaveLength(4);
+  });
+
+  // --- Out-of-order lineups (300) ---
+
+  it('parses out-of-order lineup records from 300', () => {
+    expect(result?.outOfOrderLineups?.length).toBeGreaterThan(0);
+  });
+
+  // --- Team PAB (320) ---
+
+  it('parses team pairing allocated bye record from 320', () => {
+    expect(result?.teamPairingAllocatedByes).toBeDefined();
+  });
+
+  // --- Forfeited matches (330) ---
+
+  it('parses 22 forfeited match records from 330', () => {
+    expect(result?.forfeitedMatches).toHaveLength(22);
+  });
+
+  // --- Warning behaviour ---
+
+  it('emits only one warning for unrecognised tag 132 (round dates)', () => {
     const warnings: string[] = [];
     parse(fixture('grandmommyscup'), {
       onWarning: (w) => warnings.push(w.message),
     });
-    // Many TRF25-specific tags will trigger warnings
-    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('132');
   });
 });
 
