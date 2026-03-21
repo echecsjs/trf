@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.1 — 2026-03-21
+
+### Fixed
+
+- `eslint-config-prettier` moved to end of ESLint config array, preventing
+  ESLint auto-fix from re-introducing formatting that Prettier rejects.
+
 ## 3.1.0 — 2026-03-19
 
 ### Added
