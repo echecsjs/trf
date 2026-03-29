@@ -157,9 +157,11 @@ interface Tournament {
   prohibitedPairings?: ProhibitedPairing[];
   roundDates?: string[];
   rounds: number;
+  standingsTiebreaks?: string[];
   startDate?: string;
   teamPairingAllocatedByes?: TeamPairingAllocatedBye;
   teams?: Team[];
+  tiebreaks?: string[];
   timeControl?: string;
   tournamentType?: string;
   version: Version;

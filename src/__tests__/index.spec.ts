@@ -1659,6 +1659,150 @@ describe('stringify — round dates (132)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Tiebreak tags (202 and 212)
+// ---------------------------------------------------------------------------
+describe('parse — tiebreak tags (202)', () => {
+  const TB_INPUT = '### trf26\n012 T\nXXR 9\n202 BH C1,BH,SB,DE\n';
+
+  it('parses tiebreaks from 202 tag', () => {
+    expect(parse(TB_INPUT)?.tiebreaks).toEqual(['BH C1', 'BH', 'SB', 'DE']);
+  });
+
+  it('tiebreaks is undefined when 202 tag is absent', () => {
+    expect(parse('012 T\nXXR 1\n')?.tiebreaks).toBeUndefined();
+  });
+
+  it('does not emit onWarning for 202 tag', () => {
+    const onWarning = vi.fn();
+    parse(TB_INPUT, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+
+  it('parses single tiebreak code', () => {
+    const input = '### trf26\n012 T\nXXR 9\n202 BH\n';
+    expect(parse(input)?.tiebreaks).toEqual(['BH']);
+  });
+});
+
+describe('parse — standings tiebreak tags (212)', () => {
+  const STB_INPUT = '### trf26\n012 T\nXXR 9\n212 PTS,BH C1,BH,SB,DE\n';
+
+  it('parses standingsTiebreaks from 212 tag', () => {
+    expect(parse(STB_INPUT)?.standingsTiebreaks).toEqual([
+      'PTS',
+      'BH C1',
+      'BH',
+      'SB',
+      'DE',
+    ]);
+  });
+
+  it('standingsTiebreaks is undefined when 212 tag is absent', () => {
+    expect(parse('012 T\nXXR 1\n')?.standingsTiebreaks).toBeUndefined();
+  });
+
+  it('does not emit onWarning for 212 tag', () => {
+    const onWarning = vi.fn();
+    parse(STB_INPUT, { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+describe('parse — grandmommyscup tiebreaks', () => {
+  it('parses 202 tiebreaks from grandmommyscup fixture', () => {
+    const result = parse(fixture('grandmommyscup'));
+    expect(result?.tiebreaks).toEqual([
+      'EDET/P',
+      'EMGSB/C1/P',
+      'BH:MP/C1/P',
+      'MPvGP',
+    ]);
+  });
+});
+
+describe('stringify — tiebreak tags (202/212)', () => {
+  it('emits 202 tag when tiebreaks is present and version is TRF26', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      tiebreaks: ['BH C1', 'BH', 'SB', 'DE'],
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toContain('202 BH C1,BH,SB,DE');
+  });
+
+  it('emits 212 tag when standingsTiebreaks is present and version is TRF26', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
+      version: 'TRF26',
+    };
+    expect(stringify(t)).toContain('212 PTS,BH C1,BH,SB,DE');
+  });
+
+  it('does not emit 202 for TRF16', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      tiebreaks: ['BH'],
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toMatch(/^202/m);
+  });
+
+  it('does not emit 212 for TRF16', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      standingsTiebreaks: ['PTS'],
+      version: 'TRF16',
+    };
+    expect(stringify(t)).not.toMatch(/^212/m);
+  });
+
+  it('does not emit 202 when tiebreaks is undefined', () => {
+    const t: Tournament = { players: [], rounds: 1, version: 'TRF26' };
+    expect(stringify(t)).not.toMatch(/^202/m);
+  });
+
+  it('does not emit 212 when standingsTiebreaks is undefined', () => {
+    const t: Tournament = { players: [], rounds: 1, version: 'TRF26' };
+    expect(stringify(t)).not.toMatch(/^212/m);
+  });
+});
+
+describe('stringify round-trip — tiebreak tags (202/212)', () => {
+  it('202 tiebreaks survive round-trip', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      tiebreaks: ['BH C1', 'BH', 'SB', 'DE'],
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.tiebreaks).toEqual(['BH C1', 'BH', 'SB', 'DE']);
+  });
+
+  it('212 standingsTiebreaks survive round-trip', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.standingsTiebreaks).toEqual([
+      'PTS',
+      'BH C1',
+      'BH',
+      'SB',
+      'DE',
+    ]);
+  });
+});
+
 describe('stringify round-trip — 240/260/299', () => {
   it('240 bye record survives round-trip', () => {
     const t: Tournament = {

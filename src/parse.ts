@@ -457,6 +457,22 @@ export default function parse(
         }
         break;
       }
+      case '202': {
+        const value202 = line.slice(4).trim();
+        if (value202.length > 0) {
+          tournament.tiebreaks = value202.split(',').map((s) => s.trim());
+        }
+        break;
+      }
+      case '212': {
+        const value212 = line.slice(4).trim();
+        if (value212.length > 0) {
+          tournament.standingsTiebreaks = value212
+            .split(',')
+            .map((s) => s.trim());
+        }
+        break;
+      }
       case 'XXR': {
         tournament.rounds = Number(line.slice(4).trim()) || 0;
         break;

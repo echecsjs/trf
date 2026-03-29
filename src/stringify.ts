@@ -215,6 +215,15 @@ export default function stringify(
     if (tournament.pairingController !== undefined) {
       lines.push(`182 ${tournament.pairingController}`);
     }
+    if (tournament.tiebreaks !== undefined && tournament.tiebreaks.length > 0) {
+      lines.push(`202 ${tournament.tiebreaks.join(',')}`);
+    }
+    if (
+      tournament.standingsTiebreaks !== undefined &&
+      tournament.standingsTiebreaks.length > 0
+    ) {
+      lines.push(`212 ${tournament.standingsTiebreaks.join(',')}`);
+    }
   }
 
   for (const [index, player] of tournament.players.entries()) {
