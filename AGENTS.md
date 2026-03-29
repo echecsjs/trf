@@ -19,6 +19,21 @@ Mirrors the API style of `@echecs/pgn`.
 
 ---
 
+## Specification
+
+`SPEC.md` is the central source of truth for this library. It contains the full
+TRF26 format specification (approved by FIDE Council, applied from 01/09/2025).
+`SPEC-trf16.md` and `SPEC-supplement.md` cover the legacy TRF16 format and
+supplementary details respectively.
+
+Always consult `SPEC.md` before implementing or modifying any tag parsing, field
+semantics, or serialization logic. The spec defines tag numbers, column layouts,
+value formats, and the distinction between similar-sounding concepts (e.g.
+tiebreaks for breaking ties vs. tiebreaks for defining standings). If the code
+and the spec disagree, the spec wins.
+
+---
+
 ## Similar Libraries
 
 Use these to cross-check output when testing:
