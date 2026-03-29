@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.0 — 2026-03-29
+
+### Added
+
+- Parsed and stringified tiebreak tags `202` and `212` (TRF26). New
+  `Tournament.tiebreaks` and `Tournament.standingsTiebreaks` fields store the
+  comma-separated FIDE tiebreak codes.
+
 ## 3.1.1 — 2026-03-21
 
 ### Fixed

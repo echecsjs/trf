@@ -160,7 +160,10 @@ interface Tournament {
   name?: string;
   players: Player[];
   rounds: number;
+  standingsTiebreaks?: string[]; // Tag 212 — codes for defining standings
   startDate?: string;
+  teams?: Team[];
+  tiebreaks?: string[]; // Tag 202 — codes for breaking ties
   timeControl?: string;
   version: Version; // 'TRF16' | 'TRF26'
 }
