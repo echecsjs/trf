@@ -7,6 +7,7 @@ import { parse, stringify } from '../index.js';
 import type {
   ParseWarning,
   Player,
+  ScoringSystem,
   StringifyOptions,
   Tournament,
 } from '../types.js';
@@ -62,6 +63,43 @@ describe('stringify — header tags', () => {
 
   it('omits XXR line when rounds is 0', () => {
     expect(stringify(minimal({ rounds: 0 }))).not.toContain('XXR');
+  });
+});
+
+describe('stringify — XXC (TRFx configuration)', () => {
+  it('emits XXC rank for TRF16 when useRankingId is true', () => {
+    expect(stringify(minimal({ useRankingId: true }))).toContain('XXC rank');
+  });
+
+  it('does not emit XXC when useRankingId is undefined', () => {
+    expect(stringify(minimal())).not.toContain('XXC');
+  });
+});
+
+describe('stringify — XXZ (absent players)', () => {
+  it('emits XXZ line for absentPlayers', () => {
+    expect(stringify(minimal({ absentPlayers: [3, 7, 12] }))).toContain(
+      'XXZ 3 7 12',
+    );
+  });
+
+  it('does not emit XXZ when absentPlayers is undefined', () => {
+    expect(stringify(minimal())).not.toContain('XXZ');
+  });
+});
+
+describe('stringify — XXA (per-player acceleration points)', () => {
+  it('emits XXA line for each player acceleration', () => {
+    const output = stringify(
+      minimal({
+        playerAccelerations: [{ pairingNumber: 1, points: [0.5, 0.5, 0] }],
+      }),
+    );
+    expect(output).toMatch(/XXA\s+1\s+0\.5\s+0\.5\s+0\.0/);
+  });
+
+  it('does not emit XXA when playerAccelerations is undefined', () => {
+    expect(stringify(minimal())).not.toContain('XXA');
   });
 });
 
@@ -338,6 +376,116 @@ function fixture(name: string): string {
     'utf8',
   );
 }
+
+describe('stringify — tag 192 (encoded tournament type)', () => {
+  it('emits 192 line for encodedTournamentType', () => {
+    const output = stringify(
+      minimal({
+        encodedTournamentType: 'FIDE_DUTCH_2025',
+        version: 'TRF26',
+      }),
+    );
+    expect(output).toContain('192 FIDE_DUTCH_2025');
+  });
+
+  it('omits 192 line when encodedTournamentType is undefined', () => {
+    const output = stringify(minimal({ version: 'TRF26' }));
+    expect(output).not.toContain('192');
+  });
+});
+
+describe('stringify — tag 162 (scoring system)', () => {
+  it('emits 162 line with non-default win value', () => {
+    const output = stringify(
+      minimal({
+        scoringSystem: { win: 3 },
+        version: 'TRF26',
+      }),
+    );
+    expect(output).toContain('162');
+    expect(output).toMatch(/162\s+W\s+3\.0/);
+  });
+
+  it('emits all six codes when all are set', () => {
+    const scoring: ScoringSystem = {
+      absence: 0,
+      draw: 1,
+      loss: 0,
+      pairingAllocatedBye: 3,
+      unknown: 1,
+      win: 3,
+    };
+    const output = stringify(
+      minimal({ scoringSystem: scoring, version: 'TRF26' }),
+    );
+    expect(output).toMatch(/162/);
+    // All codes should appear
+    expect(output).toMatch(/W\s+3\.0/);
+    expect(output).toMatch(/D\s+1\.0/);
+    expect(output).toMatch(/L\s+0\.0/);
+    expect(output).toMatch(/A\s+0\.0/);
+    expect(output).toMatch(/P\s+3\.0/);
+    expect(output).toMatch(/X\s+1\.0/);
+  });
+
+  it('omits 162 line when scoringSystem is undefined', () => {
+    const output = stringify(minimal({ version: 'TRF26' }));
+    expect(output).not.toContain('162');
+  });
+
+  it('omits 162 line when scoringSystem is empty object', () => {
+    const output = stringify(minimal({ scoringSystem: {}, version: 'TRF26' }));
+    expect(output).not.toContain('162');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXS — Extended Scoring System
+// ---------------------------------------------------------------------------
+describe('stringify — XXS (extended scoring system)', () => {
+  it('emits XXS for colour-specific scoring fields', () => {
+    const output = stringify(
+      minimal({ scoringSystem: { blackWin: 1, whiteWin: 1.5 } }),
+    );
+    expect(output).toMatch(/XXS/);
+    expect(output).toContain('WW=1.5');
+    expect(output).toContain('BW=1.0');
+  });
+
+  it('does not emit XXS when only tag-162 fields are set', () => {
+    const output = stringify(
+      minimal({ scoringSystem: { win: 3 }, version: 'TRF26' }),
+    );
+    expect(output).not.toContain('XXS');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXP — Forbidden pairs
+// ---------------------------------------------------------------------------
+describe('stringify — XXP (forbidden pairs)', () => {
+  it('emits XXP for prohibited pairings with round 0/0', () => {
+    const output = stringify(
+      minimal({
+        prohibitedPairings: [
+          { firstRound: 0, lastRound: 0, playerIds: [13, 68] },
+        ],
+      }),
+    );
+    expect(output).toContain('XXP 13 68');
+  });
+
+  it('does not emit XXP for tag 260 pairings (non-zero rounds)', () => {
+    const output = stringify(
+      minimal({
+        prohibitedPairings: [
+          { firstRound: 1, lastRound: 3, playerIds: [13, 68] },
+        ],
+      }),
+    );
+    expect(output).not.toContain('XXP');
+  });
+});
 
 const ROUNDTRIP_FIXTURES = [
   'dutch_2025_C5',

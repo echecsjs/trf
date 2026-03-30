@@ -1,3 +1,23 @@
+interface ScoringSystem {
+  absence?: number;
+  blackDraw?: number;
+  blackLoss?: number;
+  blackWin?: number;
+  draw?: number;
+  forfeitLoss?: number;
+  forfeitWin?: number;
+  fullPointBye?: number;
+  halfPointBye?: number;
+  loss?: number;
+  pairingAllocatedBye?: number;
+  unknown?: number;
+  whiteDraw?: number;
+  whiteLoss?: number;
+  whiteWin?: number;
+  win?: number;
+  zeroPointBye?: number;
+}
+
 type ResultCode =
   | '+'
   | '-'
@@ -23,6 +43,11 @@ interface ParseError {
   line: number;
   message: string;
   offset: number;
+}
+
+interface PlayerAcceleration {
+  pairingNumber: number;
+  points: number[];
 }
 
 interface ParseOptions {
@@ -137,12 +162,16 @@ interface TeamPairingAllocatedBye {
 
 interface Tournament {
   abnormalPoints?: AbnormalPoints[];
+  absentPlayers?: number[];
   acceleratedRounds?: AcceleratedRound[];
   byes?: Bye[];
   chiefArbiter?: string;
   city?: string;
+  colourSequence?: string;
   comments?: string[];
   deputyArbiters?: string[];
+  encodedTimeControl?: string;
+  encodedTournamentType?: string;
   endDate?: string;
   federation?: string;
   forfeitedMatches?: ForfeitedMatch[];
@@ -153,17 +182,22 @@ interface Tournament {
   numberOfTeams?: number;
   outOfOrderLineups?: OutOfOrderLineup[];
   pairingController?: string;
+  playerAccelerations?: PlayerAcceleration[];
   players: Player[];
   prohibitedPairings?: ProhibitedPairing[];
   roundDates?: string[];
   rounds: number;
+  scoringSystem?: ScoringSystem;
   standingsTiebreaks?: string[];
   startDate?: string;
+  startingRankMethod?: string;
   teamPairingAllocatedByes?: TeamPairingAllocatedBye;
+  teamScoringSystem?: string;
   teams?: Team[];
   tiebreaks?: string[];
   timeControl?: string;
   tournamentType?: string;
+  useRankingId?: boolean;
   version: Version;
 }
 
@@ -178,9 +212,11 @@ export type {
   ParseOptions,
   ParseWarning,
   Player,
+  PlayerAcceleration,
   ProhibitedPairing,
   ResultCode,
   RoundResult,
+  ScoringSystem,
   Sex,
   StringifyOptions,
   Team,

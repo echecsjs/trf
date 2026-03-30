@@ -205,6 +205,68 @@ export default function stringify(
     lines.push(`XXR ${tournament.rounds}`);
   }
 
+  if (
+    tournament.absentPlayers !== undefined &&
+    tournament.absentPlayers.length > 0
+  ) {
+    lines.push(`XXZ ${tournament.absentPlayers.join(' ')}`);
+  }
+
+  for (const pa of tournament.playerAccelerations ?? []) {
+    const pointsPart = pa.points
+      .map((p) => pad(p.toFixed(1), 4, 'right'))
+      .join(' ');
+    lines.push(`XXA${pad(String(pa.pairingNumber), 4, 'right')} ${pointsPart}`);
+  }
+
+  {
+    const xxcParts: string[] = [];
+    if (tournament.useRankingId === true) {
+      xxcParts.push('rank');
+    }
+    if (
+      tournament.version !== 'TRF26' &&
+      tournament.initialColour !== undefined
+    ) {
+      xxcParts.push(tournament.initialColour === 'W' ? 'white1' : 'black1');
+    }
+    if (xxcParts.length > 0) {
+      lines.push(`XXC ${xxcParts.join(' ')}`);
+    }
+  }
+
+  {
+    const s = tournament.scoringSystem;
+    if (s !== undefined) {
+      const xxsColourCodes: [string, number | undefined][] = [
+        ['WW', s.whiteWin],
+        ['BW', s.blackWin],
+        ['WD', s.whiteDraw],
+        ['BD', s.blackDraw],
+        ['WL', s.whiteLoss],
+        ['BL', s.blackLoss],
+        ['ZPB', s.zeroPointBye],
+        ['HPB', s.halfPointBye],
+        ['FPB', s.fullPointBye],
+        ['FW', s.forfeitWin],
+        ['FL', s.forfeitLoss],
+      ];
+      const xxsColourEntries = xxsColourCodes.filter(
+        (c): c is [string, number] => c[1] !== undefined,
+      );
+      if (xxsColourEntries.length > 0) {
+        const allEntries: [string, number][] = [...xxsColourEntries];
+        if (s.pairingAllocatedBye !== undefined) {
+          allEntries.push(['PAB', s.pairingAllocatedBye]);
+        }
+        const parts = allEntries.map(
+          ([code, pts]) => `${code}=${pts.toFixed(1)}`,
+        );
+        lines.push(`XXS ${parts.join(' ')}`);
+      }
+    }
+  }
+
   if (tournament.version === 'TRF26') {
     if (tournament.rounds > 0) {
       lines.push(`142 ${tournament.rounds}`);
@@ -212,8 +274,31 @@ export default function stringify(
     if (tournament.initialColour !== undefined) {
       lines.push(`152 ${tournament.initialColour}`);
     }
+    if (tournament.scoringSystem !== undefined) {
+      const s = tournament.scoringSystem;
+      const codes: [string, number | undefined][] = [
+        ['W', s.win],
+        ['D', s.draw],
+        ['L', s.loss],
+        ['A', s.absence],
+        ['P', s.pairingAllocatedBye],
+        ['X', s.unknown],
+      ];
+      const entries = codes
+        .filter((c): c is [string, number] => c[1] !== undefined)
+        .map(([code, pts]) => `${code}${pad(pts.toFixed(1), 4, 'right')}`);
+      if (entries.length > 0) {
+        lines.push(`162  ${entries.join('    ')}`);
+      }
+    }
+    if (tournament.startingRankMethod !== undefined) {
+      lines.push(`172 ${tournament.startingRankMethod}`);
+    }
     if (tournament.pairingController !== undefined) {
       lines.push(`182 ${tournament.pairingController}`);
+    }
+    if (tournament.encodedTournamentType !== undefined) {
+      lines.push(`192 ${tournament.encodedTournamentType}`);
     }
     if (tournament.tiebreaks !== undefined && tournament.tiebreaks.length > 0) {
       lines.push(`202 ${tournament.tiebreaks.join(',')}`);
@@ -223,6 +308,15 @@ export default function stringify(
       tournament.standingsTiebreaks.length > 0
     ) {
       lines.push(`212 ${tournament.standingsTiebreaks.join(',')}`);
+    }
+    if (tournament.encodedTimeControl !== undefined) {
+      lines.push(`222 ${tournament.encodedTimeControl}`);
+    }
+    if (tournament.colourSequence !== undefined) {
+      lines.push(`352 ${tournament.colourSequence}`);
+    }
+    if (tournament.teamScoringSystem !== undefined) {
+      lines.push(`362 ${tournament.teamScoringSystem}`);
     }
   }
 
@@ -299,13 +393,25 @@ export default function stringify(
     }
   }
 
+  // XXP — Forbidden pairs (all versions; round sentinel 0/0)
+  for (const pp of tournament.prohibitedPairings ?? []) {
+    if (pp.firstRound === 0 && pp.lastRound === 0) {
+      const idPart = pp.playerIds.join(' ');
+      lines.push(`XXP ${idPart}`);
+    }
+  }
+
   // 260 — Prohibited pairings (TRF26 only)
   if (tournament.version === 'TRF26') {
     for (const pp of tournament.prohibitedPairings ?? []) {
-      const idPart = pp.playerIds.map((id) => String(id).padStart(4)).join(' ');
-      lines.push(
-        `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)} ${idPart}`,
-      );
+      if (pp.firstRound !== 0 || pp.lastRound !== 0) {
+        const idPart = pp.playerIds
+          .map((id) => String(id).padStart(4))
+          .join(' ');
+        lines.push(
+          `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)} ${idPart}`,
+        );
+      }
     }
   }
 

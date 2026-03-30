@@ -1,5 +1,33 @@
 # Changelog
 
+## 3.3.0 — 2026-03-30
+
+### Added
+
+- Tag `162` — Scoring point system for individuals. New `ScoringSystem`
+  interface with fields: `win`, `draw`, `loss`, `absence`,
+  `pairingAllocatedBye`, `unknown`. Stored in `Tournament.scoringSystem`.
+- Tag `192` — Encoded tournament type. New `Tournament.encodedTournamentType`
+  field (separate from the free-form `092` `tournamentType`).
+- Tags `172`, `222`, `352`, `362` — Raw string passthrough. New fields:
+  `startingRankMethod`, `encodedTimeControl`, `colourSequence`,
+  `teamScoringSystem`. Values preserved on round-trip.
+- Full TRFx support — JaVaFo extension tags (`XXC`, `XXZ`, `XXP`, `XXA`, `XXS`)
+  are now parsed and stringified.
+- `XXC` — Configuration: `Tournament.useRankingId` for rank mode,
+  `white1`/`black1` mapped to existing `initialColour`.
+- `XXZ` — Absent players: new `Tournament.absentPlayers` field.
+- `XXP` — Forbidden pairs: stored as `prohibitedPairings` with round 0/0
+  sentinel (coexists with tag `260` entries).
+- `XXA` — Per-player accelerations: new `PlayerAcceleration` type and
+  `Tournament.playerAccelerations` field.
+- `XXS` — Extended scoring system: 11 new colour-specific fields on
+  `ScoringSystem` (`whiteWin`, `blackWin`, `whiteDraw`, `blackDraw`,
+  `whiteLoss`, `blackLoss`, `forfeitWin`, `forfeitLoss`, `fullPointBye`,
+  `halfPointBye`, `zeroPointBye`). Supports shortcut expansion (`W`, `D`) and
+  last-value-wins semantics.
+- New exported types: `PlayerAcceleration`, `ScoringSystem`.
+
 ## 3.2.0 — 2026-03-29
 
 ### Added

@@ -153,18 +153,28 @@ const pairings = dutch(toPlayers(tournament), toGames(tournament), 5);
 
 ```typescript
 interface Tournament {
+  absentPlayers?: number[]; // XXZ — players absent for current round
   chiefArbiter?: string;
   city?: string;
+  colourSequence?: string; // Tag 352 — e.g. 'WBWBWB'
+  encodedTimeControl?: string; // Tag 222 — e.g. '5400+30'
+  encodedTournamentType?: string; // Tag 192 — e.g. 'FIDE_DUTCH_2025'
   endDate?: string;
   federation?: string;
+  initialColour?: 'B' | 'W'; // Tag 152 / XXC white1/black1
   name?: string;
+  playerAccelerations?: PlayerAcceleration[]; // XXA — per-player fictitious points
   players: Player[];
   rounds: number;
+  scoringSystem?: ScoringSystem; // Tag 162 / XXS
   standingsTiebreaks?: string[]; // Tag 212 — codes for defining standings
   startDate?: string;
+  startingRankMethod?: string; // Tag 172 — e.g. 'FRA FIDON'
   teams?: Team[];
+  teamScoringSystem?: string; // Tag 362 — e.g. 'TW 2.0    TD 1.0    TL 0.0'
   tiebreaks?: string[]; // Tag 202 — codes for breaking ties
   timeControl?: string;
+  useRankingId?: boolean; // XXC rank
   version: Version; // 'TRF16' | 'TRF26'
 }
 

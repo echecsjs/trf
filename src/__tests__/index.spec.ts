@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { parse, stringify } from '../index.js';
 
-import type { ParseError, ParseWarning, Tournament } from '../types.js';
+import type {
+  ParseError,
+  ParseWarning,
+  ScoringSystem,
+  Tournament,
+} from '../types.js';
 
 function fixture(name: string): string {
   return readFileSync(
@@ -1847,5 +1852,385 @@ describe('stringify round-trip — 240/260/299', () => {
     const result = parse(stringify(t));
     expect(result?.abnormalPoints?.[0]?.matchPoints).toBe(2);
     expect(result?.abnormalPoints?.[0]?.gamePoints).toBe(2.5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Raw passthrough tags (172, 222, 352, 362)
+// ---------------------------------------------------------------------------
+describe('parse — raw passthrough tags', () => {
+  it('parses tag 172 into startingRankMethod', () => {
+    const input = '012 T\n142 9\n172 FRA FIDON\n';
+    const result = parse(input);
+    expect(result?.startingRankMethod).toBe('FRA FIDON');
+  });
+
+  it('parses tag 222 into encodedTimeControl', () => {
+    const input = '012 T\n142 9\n222 40/6000+30:900+30\n';
+    const result = parse(input);
+    expect(result?.encodedTimeControl).toBe('40/6000+30:900+30');
+  });
+
+  it('parses tag 352 into colourSequence', () => {
+    const input = '012 T\n142 9\n352 WBWBWB\n';
+    const result = parse(input);
+    expect(result?.colourSequence).toBe('WBWBWB');
+  });
+
+  it('parses tag 362 into teamScoringSystem', () => {
+    const input = '012 T\n142 9\n362  TW 2.0    TD 1.0    TL 0.0\n';
+    const result = parse(input);
+    expect(result?.teamScoringSystem).toBe('TW 2.0    TD 1.0    TL 0.0');
+  });
+
+  it('raw tags are undefined when absent', () => {
+    const result = parse('012 T\n142 9\n');
+    expect(result?.startingRankMethod).toBeUndefined();
+    expect(result?.encodedTimeControl).toBeUndefined();
+    expect(result?.colourSequence).toBeUndefined();
+    expect(result?.teamScoringSystem).toBeUndefined();
+  });
+
+  it('raw passthrough tags survive round-trip', () => {
+    const t: Tournament = {
+      colourSequence: 'WBWBWB',
+      encodedTimeControl: '5400+30',
+      players: [],
+      rounds: 9,
+      startingRankMethod: 'FRA FIDON',
+      teamScoringSystem: 'TW 2.0    TD 1.0    TL 0.0',
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.startingRankMethod).toBe('FRA FIDON');
+    expect(result?.encodedTimeControl).toBe('5400+30');
+    expect(result?.colourSequence).toBe('WBWBWB');
+    expect(result?.teamScoringSystem).toBe('TW 2.0    TD 1.0    TL 0.0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tag 162 — Scoring point system
+// ---------------------------------------------------------------------------
+describe('parse — tag 162 (scoring system)', () => {
+  it('parses W and D codes with non-default values', () => {
+    //                     5    14
+    const input = '012 T\n142 9\n162  W 3.0    D 1.0\n';
+    const result = parse(input);
+    expect(result?.scoringSystem).toBeDefined();
+    expect(result?.scoringSystem?.win).toBe(3);
+    expect(result?.scoringSystem?.draw).toBe(1);
+  });
+
+  it('parses all six result codes', () => {
+    // Codes at positions 5, 14, 23, 32, 41, 50 (stride 9)
+    const input =
+      '012 T\n142 9\n162  W 1.5    D 0.5    L 0.0    A 0.0    P 1.5    X 0.5\n';
+    const result = parse(input);
+    expect(result?.scoringSystem).toEqual({
+      absence: 0,
+      draw: 0.5,
+      loss: 0,
+      pairingAllocatedBye: 1.5,
+      unknown: 0.5,
+      win: 1.5,
+    } satisfies ScoringSystem);
+  });
+
+  it('parses a single non-default code', () => {
+    const input = '012 T\n142 9\n162  W 3.0\n';
+    const result = parse(input);
+    expect(result?.scoringSystem?.win).toBe(3);
+    expect(result?.scoringSystem?.draw).toBeUndefined();
+  });
+
+  it('scoringSystem is undefined when tag 162 is absent', () => {
+    const result = parse('012 T\n142 9\n');
+    expect(result?.scoringSystem).toBeUndefined();
+  });
+
+  it('detects version as TRF26 when tag 162 is present', () => {
+    const result = parse('012 T\nXXR 9\n162  W 3.0\n');
+    expect(result?.version).toBe('TRF26');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tag 192 — Encoded tournament type
+// ---------------------------------------------------------------------------
+describe('parse — tag 192 (encoded tournament type)', () => {
+  it('parses encoded tournament type', () => {
+    const input = '012 T\n142 9\n192 FIDE_DUTCH_2025\n';
+    const result = parse(input);
+    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
+  });
+
+  it('parses FIDE_BURSTEIN variant', () => {
+    const input = '012 T\n142 9\n192 FIDE_BURSTEIN\n';
+    const result = parse(input);
+    expect(result?.encodedTournamentType).toBe('FIDE_BURSTEIN');
+  });
+
+  it('encodedTournamentType is undefined when tag 192 is absent', () => {
+    const result = parse('012 T\n142 9\n');
+    expect(result?.encodedTournamentType).toBeUndefined();
+  });
+
+  it('detects version as TRF26 when tag 192 is present', () => {
+    const result = parse('012 T\nXXR 9\n192 FIDE_DUTCH_2025\n');
+    expect(result?.version).toBe('TRF26');
+  });
+
+  it('keeps both 092 and 192 as separate fields', () => {
+    const input = '012 T\n142 9\n092 Swiss-System\n192 FIDE_DUTCH_2025\n';
+    const result = parse(input);
+    expect(result?.tournamentType).toBe('Swiss-System');
+    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
+  });
+});
+
+describe('stringify round-trip — tag 192 (encoded tournament type)', () => {
+  it('encoded tournament type survives round-trip', () => {
+    const t: Tournament = {
+      encodedTournamentType: 'FIDE_DUTCH_2025',
+      players: [],
+      rounds: 9,
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
+  });
+
+  it('does not emit tag 192 when encodedTournamentType is undefined', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).not.toContain('192');
+  });
+});
+
+describe('stringify round-trip — tag 162 (scoring system)', () => {
+  it('scoring system with non-default win survives round-trip', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      scoringSystem: { win: 3 },
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.scoringSystem?.win).toBe(3);
+  });
+
+  it('scoring system with all codes survives round-trip', () => {
+    const scoring: ScoringSystem = {
+      absence: 0,
+      draw: 1,
+      loss: 0,
+      pairingAllocatedBye: 3,
+      unknown: 1,
+      win: 3,
+    };
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      scoringSystem: scoring,
+      version: 'TRF26',
+    };
+    const result = parse(stringify(t));
+    expect(result?.scoringSystem).toEqual(scoring);
+  });
+
+  it('does not emit tag 162 when scoringSystem is undefined', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 9,
+      version: 'TRF26',
+    };
+    expect(stringify(t)).not.toContain('162');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXC — TRFx configuration
+// ---------------------------------------------------------------------------
+describe('parse — XXC (TRFx configuration)', () => {
+  it('parses XXC rank flag', () => {
+    const result = parse('012 T\nXXR 9\nXXC rank\n');
+    expect(result?.useRankingId).toBe(true);
+  });
+
+  it('parses XXC white1 into initialColour', () => {
+    const result = parse('012 T\nXXR 9\nXXC white1\n');
+    expect(result?.initialColour).toBe('W');
+  });
+
+  it('parses XXC black1 into initialColour', () => {
+    const result = parse('012 T\nXXR 9\nXXC black1\n');
+    expect(result?.initialColour).toBe('B');
+  });
+
+  it('parses combined XXC rank black1', () => {
+    const result = parse('012 T\nXXR 9\nXXC rank black1\n');
+    expect(result?.useRankingId).toBe(true);
+    expect(result?.initialColour).toBe('B');
+  });
+
+  it('useRankingId is undefined when XXC absent', () => {
+    const result = parse('012 T\nXXR 9\n');
+    expect(result?.useRankingId).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXZ — Absent players
+// ---------------------------------------------------------------------------
+describe('parse — XXZ (absent players)', () => {
+  it('parses single XXZ line with multiple player IDs', () => {
+    const result = parse('012 T\nXXR 9\nXXZ 3 7 12\n');
+    expect(result?.absentPlayers).toEqual([3, 7, 12]);
+  });
+
+  it('concatenates multiple XXZ lines', () => {
+    const result = parse('012 T\nXXR 9\nXXZ 3 7\nXXZ 12 15\n');
+    expect(result?.absentPlayers).toEqual([3, 7, 12, 15]);
+  });
+
+  it('absentPlayers is undefined when XXZ absent', () => {
+    const result = parse('012 T\nXXR 9\n');
+    expect(result?.absentPlayers).toBeUndefined();
+  });
+
+  it('does not emit unknown-tag warning for XXZ', () => {
+    const onWarning = vi.fn<(warning: ParseWarning) => void>();
+    parse('012 T\nXXR 9\nXXZ 3 7 12\n', { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXP — Forbidden pairs
+// ---------------------------------------------------------------------------
+describe('parse — XXP (forbidden pairs)', () => {
+  it('parses XXP line as prohibited pairing for all rounds', () => {
+    const result = parse('012 T\nXXR 9\nXXP 13 68\n');
+    expect(result?.prohibitedPairings).toHaveLength(1);
+    expect(result?.prohibitedPairings?.[0]).toEqual({
+      firstRound: 0,
+      lastRound: 0,
+      playerIds: [13, 68],
+    });
+  });
+
+  it('parses multiple XXP lines as separate entries', () => {
+    const result = parse('012 T\nXXR 9\nXXP 13 68\nXXP 1 2\n');
+    expect(result?.prohibitedPairings).toHaveLength(2);
+  });
+
+  it('does not emit unknown-tag warning for XXP', () => {
+    const onWarning = vi.fn<(warning: ParseWarning) => void>();
+    parse('012 T\nXXR 9\nXXP 13 68\n', { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXA — Accelerated rounds (per-player)
+// ---------------------------------------------------------------------------
+describe('parse — XXA (per-player acceleration points)', () => {
+  it('parses XXA line with player ID and per-round points', () => {
+    const result = parse('012 T\nXXR 9\nXXA    1  0.5  0.5  0.0\n');
+    expect(result?.playerAccelerations).toHaveLength(1);
+    expect(result?.playerAccelerations?.[0]).toEqual({
+      pairingNumber: 1,
+      points: [0.5, 0.5, 0],
+    });
+  });
+
+  it('parses multiple XXA lines for different players', () => {
+    const result = parse(
+      '012 T\nXXR 9\nXXA    1  0.5  0.5  0.0\nXXA    2  1.0  0.5\n',
+    );
+    expect(result?.playerAccelerations).toHaveLength(2);
+    expect(result?.playerAccelerations?.[0]?.pairingNumber).toBe(1);
+    expect(result?.playerAccelerations?.[1]?.pairingNumber).toBe(2);
+  });
+
+  it('playerAccelerations is undefined when XXA absent', () => {
+    const result = parse('012 T\nXXR 9\n');
+    expect(result?.playerAccelerations).toBeUndefined();
+  });
+
+  it('does not emit unknown-tag warning for XXA', () => {
+    const onWarning = vi.fn<(warning: ParseWarning) => void>();
+    parse('012 T\nXXR 9\nXXA    1  0.5  0.5  0.0\n', { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XXS — Extended Scoring System
+// ---------------------------------------------------------------------------
+describe('parse — XXS (extended scoring system)', () => {
+  it('parses XXS with simple codes', () => {
+    const result = parse('012 T\nXXR 9\nXXS WW=1.5 BW=1.0\n');
+    expect(result?.scoringSystem?.whiteWin).toBe(1.5);
+    expect(result?.scoringSystem?.blackWin).toBe(1);
+  });
+
+  it('parses shortcut W expanding to whiteWin, blackWin, forfeitWin, fullPointBye', () => {
+    const result = parse('012 T\nXXR 9\nXXS W=3\n');
+    expect(result?.scoringSystem?.whiteWin).toBe(3);
+    expect(result?.scoringSystem?.blackWin).toBe(3);
+    expect(result?.scoringSystem?.forfeitWin).toBe(3);
+    expect(result?.scoringSystem?.fullPointBye).toBe(3);
+  });
+
+  it('parses shortcut D expanding to whiteDraw, blackDraw, halfPointBye', () => {
+    const result = parse('012 T\nXXR 9\nXXS D=1\n');
+    expect(result?.scoringSystem?.whiteDraw).toBe(1);
+    expect(result?.scoringSystem?.blackDraw).toBe(1);
+    expect(result?.scoringSystem?.halfPointBye).toBe(1);
+  });
+
+  it('last value wins when shortcut and specific code both used', () => {
+    const result = parse('012 T\nXXR 9\nXXS W=3 WW=2\n');
+    expect(result?.scoringSystem?.whiteWin).toBe(2);
+    expect(result?.scoringSystem?.blackWin).toBe(3);
+    expect(result?.scoringSystem?.forfeitWin).toBe(3);
+    expect(result?.scoringSystem?.fullPointBye).toBe(3);
+  });
+
+  it('accumulates across multiple XXS lines', () => {
+    const result = parse('012 T\nXXR 9\nXXS WW=1.5\nXXS BW=1.0\n');
+    expect(result?.scoringSystem?.whiteWin).toBe(1.5);
+    expect(result?.scoringSystem?.blackWin).toBe(1);
+  });
+
+  it('parses all 12 individual codes', () => {
+    const input =
+      '012 T\nXXR 9\n' +
+      'XXS WW=1.5 BW=1.0 WD=0.75 BD=0.75 WL=0.0 BL=0.0\n' +
+      'XXS ZPB=0.0 HPB=0.5 FPB=1.0 PAB=1.5 FW=1.0 FL=0.0\n';
+    const result = parse(input);
+    expect(result?.scoringSystem?.whiteWin).toBe(1.5);
+    expect(result?.scoringSystem?.blackWin).toBe(1);
+    expect(result?.scoringSystem?.whiteDraw).toBe(0.75);
+    expect(result?.scoringSystem?.blackDraw).toBe(0.75);
+    expect(result?.scoringSystem?.whiteLoss).toBe(0);
+    expect(result?.scoringSystem?.blackLoss).toBe(0);
+    expect(result?.scoringSystem?.zeroPointBye).toBe(0);
+    expect(result?.scoringSystem?.halfPointBye).toBe(0.5);
+    expect(result?.scoringSystem?.fullPointBye).toBe(1);
+    expect(result?.scoringSystem?.pairingAllocatedBye).toBe(1.5);
+    expect(result?.scoringSystem?.forfeitWin).toBe(1);
+    expect(result?.scoringSystem?.forfeitLoss).toBe(0);
+  });
+
+  it('does not emit unknown-tag warning for XXS', () => {
+    const onWarning = vi.fn<(warning: ParseWarning) => void>();
+    parse('012 T\nXXR 9\nXXS WW=1.5 BW=1.0\n', { onWarning });
+    expect(onWarning).not.toHaveBeenCalled();
   });
 });

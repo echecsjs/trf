@@ -20,8 +20,10 @@ import type {
   ParseOptions,
   ParseWarning,
   Player,
+  PlayerAcceleration,
   ResultCode,
   RoundResult,
+  ScoringSystem,
   Sex,
   Team,
   Title,
@@ -29,8 +31,6 @@ import type {
   Version,
 } from './types.js';
 
-// XXC is recognised (no unknown-tag warning) but its value is not currently
-// used — it is silenced intentionally.
 const KNOWN_HEADER_TAGS = new Set([
   '###',
   '001',
@@ -63,8 +63,12 @@ const KNOWN_HEADER_TAGS = new Set([
   '362',
   '801',
   '802',
+  'XXA',
   'XXC',
+  'XXP',
   'XXR',
+  'XXS',
+  'XXZ',
 ]);
 
 const TRF26_ONLY_TAGS = new Set([
@@ -450,10 +454,69 @@ export default function parse(
         }
         break;
       }
+      case '162': {
+        const scoring: ScoringSystem = {};
+        // Position-based: code at col 5 (0-indexed), points at cols 6–9,
+        // repeating every 9 chars (cols 14, 23, 32…).
+        for (let pos = 5; pos < line.length; pos += 9) {
+          const code = line[pos]?.trim();
+          if (!code) continue;
+          const raw = line.slice(pos + 1, pos + 5).trim();
+          const pts = Number(raw);
+          if (raw.length === 0 || Number.isNaN(pts)) continue;
+          switch (code) {
+            case 'W': {
+              scoring.win = pts;
+              break;
+            }
+            case 'D': {
+              scoring.draw = pts;
+              break;
+            }
+            case 'L': {
+              scoring.loss = pts;
+              break;
+            }
+            case 'A': {
+              scoring.absence = pts;
+              break;
+            }
+            case 'P': {
+              scoring.pairingAllocatedBye = pts;
+              break;
+            }
+            case 'X': {
+              scoring.unknown = pts;
+              break;
+            }
+            default: {
+              break;
+            }
+          }
+        }
+        if (Object.keys(scoring).length > 0) {
+          tournament.scoringSystem = scoring;
+        }
+        break;
+      }
+      case '172': {
+        const srm = line.slice(4).trim();
+        if (srm.length > 0) {
+          tournament.startingRankMethod = srm;
+        }
+        break;
+      }
       case '182': {
         const pc = line.slice(4).trim();
         if (pc.length > 0) {
           tournament.pairingController = pc;
+        }
+        break;
+      }
+      case '192': {
+        const ett = line.slice(4).trim();
+        if (ett.length > 0) {
+          tournament.encodedTournamentType = ett;
         }
         break;
       }
@@ -473,8 +536,181 @@ export default function parse(
         }
         break;
       }
+      case '222': {
+        const etc = line.slice(4).trim();
+        if (etc.length > 0) {
+          tournament.encodedTimeControl = etc;
+        }
+        break;
+      }
+      case '352': {
+        const cs = line.slice(4).trim();
+        if (cs.length > 0) {
+          tournament.colourSequence = cs;
+        }
+        break;
+      }
+      case '362': {
+        const tss = line.slice(4).trim();
+        if (tss.length > 0) {
+          tournament.teamScoringSystem = tss;
+        }
+        break;
+      }
+      case 'XXC': {
+        for (const token of line.slice(4).trim().split(/\s+/)) {
+          switch (token) {
+            case 'rank': {
+              tournament.useRankingId = true;
+
+              break;
+            }
+            case 'white1': {
+              tournament.initialColour = 'W';
+
+              break;
+            }
+            case 'black1': {
+              tournament.initialColour = 'B';
+
+              break;
+            }
+            // No default
+          }
+        }
+        break;
+      }
+      case 'XXA': {
+        const xxaPairingNumber = Number(line.slice(4, 8).trim());
+        if (xxaPairingNumber > 0) {
+          const xxaPoints: number[] = [];
+          for (let pos = 9; pos < line.length; pos += 5) {
+            const raw = line.slice(pos, pos + 4).trim();
+            if (raw.length === 0) continue;
+            const n = Number(raw);
+            if (!Number.isNaN(n)) {
+              xxaPoints.push(n);
+            }
+          }
+          const xxaEntry: PlayerAcceleration = {
+            pairingNumber: xxaPairingNumber,
+            points: xxaPoints,
+          };
+          tournament.playerAccelerations ??= [];
+          tournament.playerAccelerations.push(xxaEntry);
+        }
+        break;
+      }
       case 'XXR': {
         tournament.rounds = Number(line.slice(4).trim()) || 0;
+        break;
+      }
+      case 'XXP': {
+        const xxpIds = line
+          .slice(4)
+          .trim()
+          .split(/\s+/)
+          .map(Number)
+          .filter((n) => n > 0);
+        if (xxpIds.length > 0) {
+          tournament.prohibitedPairings ??= [];
+          tournament.prohibitedPairings.push({
+            firstRound: 0,
+            lastRound: 0,
+            playerIds: xxpIds,
+          });
+        }
+        break;
+      }
+      case 'XXS': {
+        tournament.scoringSystem ??= {};
+        const s = tournament.scoringSystem;
+        for (const token of line.slice(4).trim().split(/\s+/)) {
+          const eqIndex = token.indexOf('=');
+          if (eqIndex === -1) continue;
+          const code = token.slice(0, eqIndex);
+          const value = Number(token.slice(eqIndex + 1));
+          if (Number.isNaN(value)) continue;
+          switch (code) {
+            case 'WW': {
+              s.whiteWin = value;
+              break;
+            }
+            case 'BW': {
+              s.blackWin = value;
+              break;
+            }
+            case 'WD': {
+              s.whiteDraw = value;
+              break;
+            }
+            case 'BD': {
+              s.blackDraw = value;
+              break;
+            }
+            case 'WL': {
+              s.whiteLoss = value;
+              break;
+            }
+            case 'BL': {
+              s.blackLoss = value;
+              break;
+            }
+            case 'ZPB': {
+              s.zeroPointBye = value;
+              break;
+            }
+            case 'HPB': {
+              s.halfPointBye = value;
+              break;
+            }
+            case 'FPB': {
+              s.fullPointBye = value;
+              break;
+            }
+            case 'PAB': {
+              s.pairingAllocatedBye = value;
+              break;
+            }
+            case 'FW': {
+              s.forfeitWin = value;
+              break;
+            }
+            case 'FL': {
+              s.forfeitLoss = value;
+              break;
+            }
+            case 'W': {
+              s.whiteWin = value;
+              s.blackWin = value;
+              s.forfeitWin = value;
+              s.fullPointBye = value;
+              break;
+            }
+            case 'D': {
+              s.whiteDraw = value;
+              s.blackDraw = value;
+              s.halfPointBye = value;
+              break;
+            }
+            default: {
+              break;
+            }
+          }
+        }
+        break;
+      }
+      case 'XXZ': {
+        const ids = line
+          .slice(4)
+          .trim()
+          .split(/\s+/)
+          .map(Number)
+          .filter((n) => n > 0);
+        if (ids.length > 0) {
+          tournament.absentPlayers ??= [];
+          tournament.absentPlayers.push(...ids);
+        }
         break;
       }
       case '013': {
