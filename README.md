@@ -86,7 +86,7 @@ import { stringify } from '@echecs/trf';
 function stringify(tournament: Tournament, options?: StringifyOptions): string;
 ```
 
-Takes a `Tournament` object and returns a TRF16 string.
+Takes a `Tournament` object and returns a TRF string.
 
 - Never throws.
 - Omits optional header fields when absent.
@@ -112,7 +112,7 @@ code:
 
 ```typescript
 import { parse } from '@echecs/trf';
-import { dutch } from '@echecs/swiss';
+import { pair } from '@echecs/swiss';
 
 import type { Tournament } from '@echecs/trf';
 import type { Game, Player } from '@echecs/swiss';
@@ -124,8 +124,8 @@ function toPlayers(tournament: Tournament): Player[] {
   }));
 }
 
-function toGames(tournament: Tournament): Game[] {
-  const games: Game[] = [];
+function toGames(tournament: Tournament): Game[][] {
+  const gamesByRound = new Map<number, Game[]>();
   for (const player of tournament.players) {
     for (const result of player.results) {
       if (result.color !== 'w' || result.opponentId === null) continue;
@@ -134,19 +134,24 @@ function toGames(tournament: Tournament): Game[] {
       else if (result.result === '0' || result.result === '-') score = 0;
       else if (result.result === '=') score = 0.5;
       else continue;
+      const games = gamesByRound.get(result.round) ?? [];
       games.push({
-        blackId: String(result.opponentId),
+        black: String(result.opponentId),
         result: score,
-        round: result.round,
-        whiteId: String(player.pairingNumber),
+        white: String(player.pairingNumber),
       });
+      gamesByRound.set(result.round, games);
     }
   }
-  return games;
+  const roundCount = Math.max(0, ...gamesByRound.keys());
+  return Array.from(
+    { length: roundCount },
+    (_, i) => gamesByRound.get(i + 1) ?? [],
+  );
 }
 
 const tournament = parse(trfString)!;
-const pairings = dutch(toPlayers(tournament), toGames(tournament), 5);
+const pairings = pair(toPlayers(tournament), toGames(tournament));
 ```
 
 ## Types
@@ -211,11 +216,21 @@ interface StringifyOptions {
 }
 ```
 
+## Supported Formats
+
+| Format | Status | Description                                                               |
+| ------ | ------ | ------------------------------------------------------------------------- |
+| TRF16  | Full   | FIDE TRF standard (2016)                                                  |
+| TRF26  | Full   | FIDE TRF standard (2026), all tags including 162, 192, 172, 222, 352, 362 |
+| TRFx   | Full   | JaVaFo extensions (XXC, XXZ, XXP, XXA, XXS)                               |
+
 ## TRF Format Reference
 
 The Tournament Report File (TRF) format is defined in the
-[FIDE Handbook](https://handbook.fide.com/files/handbook/TRF26.pdf). The current
-version is TRF16; TRF26 was introduced alongside the 2026 Dutch pairing rules.
+[FIDE Handbook](https://handbook.fide.com/files/handbook/TRF26.pdf). TRF16 is
+the 2016 standard; TRF26 was approved by FIDE Council on 12/05/2025 and applied
+from 01/09/2025. TRFx is the de facto extension format used by JaVaFo, the FIDE
+reference pairing engine.
 
 ## License
 
