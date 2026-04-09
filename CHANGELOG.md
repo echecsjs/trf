@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.2 — 2026-04-09
+
+### Changed
+
+- updated description to mention stringify
+
 ## 3.3.1 — 2026-04-09
 
 ### Fixed
