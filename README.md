@@ -65,17 +65,20 @@ const tournament = parse(trfString, {
 
 Round results on each player use the following codes:
 
-| Code | Meaning        |
-| ---- | -------------- |
-| `1`  | Win            |
-| `0`  | Loss           |
-| `=`  | Draw           |
-| `+`  | Forfeit win    |
-| `-`  | Forfeit loss   |
-| `F`  | Full-point bye |
-| `H`  | Half-point bye |
-| `U`  | Unplayed       |
-| `Z`  | Zero-point bye |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| `1`  | Win                                     |
+| `0`  | Loss                                    |
+| `=`  | Draw                                    |
+| `+`  | Forfeit win                             |
+| `-`  | Forfeit loss                            |
+| `D`  | Draw (unrated game, less than one move) |
+| `F`  | Full-point bye                          |
+| `H`  | Half-point bye                          |
+| `L`  | Loss (unrated game, less than one move) |
+| `U`  | Unplayed                                |
+| `W`  | Win (unrated game, less than one move)  |
+| `Z`  | Zero-point bye                          |
 
 ### `stringify()`
 
@@ -155,38 +158,60 @@ const pairings = pair(toPlayers(tournament), toGames(tournament));
 
 ## Types
 
+### `Tournament`
+
 ```typescript
 interface Tournament {
-  absentPlayers?: number[]; // XXZ — players absent for current round
-  chiefArbiter?: string;
+  abnormalPoints?: AbnormalPoints[]; // Tag 299 — abnormal result overrides per round
+  absentPlayers?: number[]; // XXZ — pairing numbers absent for current round
+  acceleratedRounds?: AcceleratedRound[]; // Tag 250 — per-player fictitious points per round range
+  byes?: Bye[]; // Tag 240 — bye assignments per round
+  chiefArbiter?: string; // Tag 102
   city?: string;
   colourSequence?: string; // Tag 352 — e.g. 'WBWBWB'
+  comments?: string[]; // TRF26 '###' comment lines
+  deputyArbiters?: string[]; // Tag 112 — one entry per deputy arbiter line
   encodedTimeControl?: string; // Tag 222 — e.g. '5400+30'
   encodedTournamentType?: string; // Tag 192 — e.g. 'FIDE_DUTCH_2025'
   endDate?: string;
   federation?: string;
+  forfeitedMatches?: ForfeitedMatch[]; // Tag 330 — forfeited team matches per round
   initialColour?: 'B' | 'W'; // Tag 152 / XXC white1/black1
   name?: string;
-  playerAccelerations?: PlayerAcceleration[]; // XXA — per-player fictitious points
+  numberOfPlayers?: number; // Tag 062
+  numberOfRatedPlayers?: number; // Tag 072
+  numberOfTeams?: number; // Tag 082
+  outOfOrderLineups?: OutOfOrderLineup[]; // Tag 300 — out-of-order team lineups per round
+  pairingController?: string; // Tag 092
+  playerAccelerations?: PlayerAcceleration[]; // XXA — per-player acceleration points
   players: Player[];
-  rounds: number;
+  prohibitedPairings?: ProhibitedPairing[]; // Tag 260 / XXP — forbidden pairings
+  roundDates?: string[]; // Tag 132 — one ISO date per round
+  rounds: number; // XXR — total planned round count
   scoringSystem?: ScoringSystem; // Tag 162 / XXS
   standingsTiebreaks?: string[]; // Tag 212 — codes for defining standings
   startDate?: string;
   startingRankMethod?: string; // Tag 172 — e.g. 'FRA FIDON'
-  teams?: Team[];
+  teamPairingAllocatedByes?: TeamPairingAllocatedBye; // Tag 320
+  teams?: Team[]; // Tag 310
   teamScoringSystem?: string; // Tag 362 — e.g. 'TW 2.0    TD 1.0    TL 0.0'
   tiebreaks?: string[]; // Tag 202 — codes for breaking ties
-  timeControl?: string;
+  timeControl?: string; // Tag 122
+  tournamentType?: string; // Tag 092 (TRF26) — free-form tournament type
   useRankingId?: boolean; // XXC rank
   version: Version; // 'TRF16' | 'TRF26'
 }
+```
 
+### `Player`
+
+```typescript
 interface Player {
   birthDate?: string;
   federation?: string;
   fideId?: string;
   name: string;
+  nationalRatings?: NationalRating[]; // NRS records for this player
   pairingNumber: number;
   points: number;
   rank: number;
@@ -195,24 +220,262 @@ interface Player {
   sex?: Sex; // 'm' | 'w'
   title?: Title; // 'GM' | 'IM' | 'FM' | ...
 }
+```
 
+### `RoundResult`
+
+```typescript
 interface RoundResult {
   color: 'b' | 'w' | '-'; // '-' = no color assigned (bye/unplayed)
   opponentId: number | null; // null for byes
   result: ResultCode;
   round: number;
 }
+```
 
+### `NationalRating`
+
+National Rating Support (NRS) record, attached to a player via
+`Player.nationalRatings`.
+
+```typescript
+interface NationalRating {
+  birthDate?: string;
+  classification?: string;
+  federation: string; // issuing federation code
+  name?: string;
+  nationalId?: string;
+  origin?: string;
+  pairingNumber: number;
+  rating: number;
+  sex?: Sex;
+}
+```
+
+### `Team`
+
+```typescript
+interface Team {
+  gamePoints: number;
+  matchPoints: number;
+  name: string;
+  nickname?: string;
+  pairingNumber: number;
+  playerIds: number[]; // ordered list of player pairing numbers
+  rank: number;
+  strengthFactor?: number;
+}
+```
+
+### `AcceleratedRound`
+
+Fictitious points awarded to a player over a range of rounds (Tag 250).
+
+```typescript
+interface AcceleratedRound {
+  firstPlayerId: number;
+  firstRound: number;
+  gamePoints: number;
+  lastPlayerId: number;
+  lastRound: number;
+  matchPoints: number;
+}
+```
+
+### `AbnormalPoints`
+
+Abnormal result override for a group of players in a given round (Tag 299).
+
+```typescript
+interface AbnormalPoints {
+  gamePoints: number;
+  matchPoints: number;
+  playerIds: number[];
+  round: number;
+  type: ' ' | '+' | '-' | 'D' | 'F' | 'H' | 'L' | 'W' | 'Z';
+}
+```
+
+### `Bye`
+
+Bye assignment for a group of players in a given round (Tag 240).
+
+```typescript
+interface Bye {
+  playerIds: number[];
+  round: number;
+  type: 'F' | 'H' | 'Z';
+}
+```
+
+### `ForfeitedMatch`
+
+Forfeited team match in a given round (Tag 330).
+
+```typescript
+interface ForfeitedMatch {
+  blackTeamId: number;
+  round: number;
+  type: '--' | '-+' | '+-'; // '--' both forfeit, '-+' black wins, '+-' white wins
+  whiteTeamId: number;
+}
+```
+
+### `OutOfOrderLineup`
+
+Out-of-order team lineup against an opponent in a given round (Tag 300).
+
+```typescript
+interface OutOfOrderLineup {
+  opponentTeamId: number;
+  playerIds: (number | null)[]; // null = board not filled
+  round: number;
+  teamId: number;
+}
+```
+
+### `ProhibitedPairing`
+
+A pairing forbidden between two players over a round range (Tag 260 / XXP).
+
+```typescript
+interface ProhibitedPairing {
+  firstRound: number; // 0 = applies to all rounds (XXP style)
+  lastRound: number;
+  playerIds: number[]; // exactly two player pairing numbers
+}
+```
+
+### `TeamPairingAllocatedBye`
+
+Team pairing-allocated bye record (Tag 320).
+
+```typescript
+interface TeamPairingAllocatedBye {
+  gamePoints: number;
+  matchPoints: number;
+  teamIdPerRound: (number | null)[]; // indexed by round; null = no bye that round
+}
+```
+
+### `PlayerAcceleration`
+
+Per-player acceleration record (XXA). Stores fictitious extra points per round.
+
+```typescript
+interface PlayerAcceleration {
+  pairingNumber: number;
+  points: number[]; // one value per round, indexed from 0
+}
+```
+
+### `ScoringSystem`
+
+Custom scoring weights for result types (Tag 162 / XXS).
+
+```typescript
+interface ScoringSystem {
+  absence?: number;
+  blackDraw?: number;
+  blackLoss?: number;
+  blackWin?: number;
+  draw?: number;
+  forfeitLoss?: number;
+  forfeitWin?: number;
+  fullPointBye?: number;
+  halfPointBye?: number;
+  loss?: number;
+  pairingAllocatedBye?: number;
+  unknown?: number;
+  whiteDraw?: number;
+  whiteLoss?: number;
+  whiteWin?: number;
+  win?: number;
+  zeroPointBye?: number;
+}
+```
+
+### `ParseOptions`
+
+```typescript
+interface ParseOptions {
+  onError?: (error: ParseError) => void;
+  onWarning?: (warning: ParseWarning) => void;
+}
+```
+
+### `ParseError`
+
+Reported via `ParseOptions.onError` when parsing fails unrecoverably. When an
+error is reported, `parse()` returns `null`.
+
+```typescript
+interface ParseError {
+  column: number; // 1-based column in the source
+  line: number; // 1-based line in the source
+  message: string;
+  offset: number; // byte offset in the source
+}
+```
+
+### `ParseWarning`
+
+Reported via `ParseOptions.onWarning` (or `StringifyOptions.onWarning`) for
+recoverable issues. Parsing continues after a warning.
+
+```typescript
 interface ParseWarning {
   column: number; // 1-based column in the source
   line: number; // 1-based line in the source (player index for stringify)
   message: string;
   offset: number; // byte offset in the source (0 for stringify)
 }
+```
 
+### `StringifyOptions`
+
+```typescript
 interface StringifyOptions {
   onWarning?: (warning: ParseWarning) => void;
 }
+```
+
+### `ResultCode`
+
+```typescript
+type ResultCode =
+  | '+' // forfeit win
+  | '-' // forfeit loss
+  | '0' // loss
+  | '1' // win
+  | '=' // draw
+  | 'D' // draw (unrated game, less than one move)
+  | 'F' // full-point bye
+  | 'H' // half-point bye
+  | 'L' // loss (unrated game, less than one move)
+  | 'U' // unplayed
+  | 'W' // win (unrated game, less than one move)
+  | 'Z'; // zero-point bye
+```
+
+### `Sex`
+
+```typescript
+type Sex = 'm' | 'w';
+```
+
+### `Title`
+
+FIDE title codes.
+
+```typescript
+type Title = 'CM' | 'FM' | 'GM' | 'IM' | 'WCM' | 'WFM' | 'WGM' | 'WIM';
+```
+
+### `Version`
+
+```typescript
+type Version = 'TRF16' | 'TRF26';
 ```
 
 ## Supported Formats

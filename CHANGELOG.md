@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.1 — 2026-04-09
+
+### Fixed
+
+- completed `Tournament` interface documentation (added 15 missing fields)
+- documented `Player.nationalRatings` field
+- added missing `ResultCode` values (`D`, `L`, `W`)
+- documented all exported types
+- distinguished `ParseError` from `ParseWarning`
+
 ## 3.3.0 — 2026-03-30
 
 ### Added
