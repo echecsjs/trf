@@ -3,6 +3,9 @@
 Agent guidance for the `@echecs/trf` package — FIDE Tournament Report File (TRF)
 parser.
 
+**See also:** [`REFERENCES.md`](REFERENCES.md) |
+[`COMPARISON.md`](COMPARISON.md) | [`SPEC.md`](SPEC.md)
+
 See the root `AGENTS.md` for workspace-wide conventions (package manager,
 TypeScript settings, formatting, naming, testing, ESLint rules).
 
@@ -18,32 +21,6 @@ Parser and serializer library, no runtime dependencies. Named exports:
 `null` and call `options.onError`. Recoverable issues emit `options.onWarning`.
 
 Mirrors the API style of `@echecs/pgn`.
-
----
-
-## Specification
-
-`SPEC.md` is the central source of truth for this library. It contains the full
-TRF26 format specification (approved by FIDE Council, applied from 01/09/2025).
-`SPEC-trf16.md` and `SPEC-supplement.md` cover the legacy TRF16 format and
-supplementary details respectively.
-
-Always consult `SPEC.md` before implementing or modifying any tag parsing, field
-semantics, or serialization logic. The spec defines tag numbers, column layouts,
-value formats, and the distinction between similar-sounding concepts (e.g.
-tiebreaks for breaking ties vs. tiebreaks for defining standings). If the code
-and the spec disagree, the spec wins.
-
----
-
-## Similar Libraries
-
-Use these to cross-check output when testing:
-
-- [`fide-trf`](https://github.com/samuraitruong/fide-trf) — Node.js TRF file
-  reader.
-- [`swtparser`](https://www.npmjs.com/package/swtparser) — parser for SWT
-  Swiss-Chess Tournament files (related but different format).
 
 ---
 
@@ -80,38 +57,6 @@ pnpm run format:ci      # Prettier check only
 ```bash
 pnpm lint && pnpm test && pnpm build
 ```
-
----
-
-## TRF Format Reference
-
-TRF (Tournament Report File) is the FIDE interchange format for pairing
-software.
-
-Column layout of a `001` player line (0-indexed):
-
-- 0–2: record type (`001`)
-- 4–7: pairing number
-- 9: sex (`m`/`w`)
-- 10–13: FIDE title
-- 15–46: player name
-- 48–51: FIDE rating
-- 53–55: federation
-- 57–68: FIDE player ID
-- 70–79: date of birth
-- 80–83: points
-- 84–88: rank
-- 91+: round results, 10 chars each (`   O c r  `)
-
-Header tag prefixes: `012` name, `022` city, `032` federation, `042` start date,
-`052` end date, `092` chief arbiter, `112` time control, `XXR` rounds.
-
-`XXR` stores the total planned round count as a plain integer after the tag
-prefix, e.g. `XXR 9`. All other `NNN`-style tags store free-form text after a
-space.
-
-Result codes: `1` win, `0` loss, `=` draw, `+` forfeit win, `-` forfeit loss,
-`F` full-point bye, `H` half-point bye, `U` unplayed, `Z` zero-point bye.
 
 ---
 
