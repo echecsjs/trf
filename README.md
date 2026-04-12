@@ -1,7 +1,7 @@
 # TRF
 
 [![npm](https://img.shields.io/npm/v/@echecs/trf)](https://www.npmjs.com/package/@echecs/trf)
-[![Coverage](https://codecov.io/gh/mormubis/trf/branch/main/graph/badge.svg)](https://codecov.io/gh/mormubis/trf)
+[![Coverage](https://codecov.io/gh/echecsjs/trf/branch/main/graph/badge.svg)](https://codecov.io/gh/echecsjs/trf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **TRF** is a TypeScript parser and serializer for the

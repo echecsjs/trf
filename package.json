@@ -1,7 +1,7 @@
 {
   "author": "Adrian de la Rosa <adrian@delarosab.me>",
   "bugs": {
-    "url": "https://github.com/mormubis/trf/issues"
+    "url": "https://github.com/echecsjs/trf/issues"
   },
   "description": "Parse and stringify FIDE Tournament Report Files (TRF) from chess pairing software. Zero dependencies, strict TypeScript.",
   "devDependencies": {
@@ -39,7 +39,7 @@
     "README.md",
     "CHANGELOG.md"
   ],
-  "homepage": "https://github.com/mormubis/trf#readme",
+  "homepage": "https://github.com/echecsjs/trf#readme",
   "keywords": [
     "arbiter",
     "chess",
@@ -58,7 +58,7 @@
   "name": "@echecs/trf",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mormubis/trf.git"
+    "url": "https://github.com/echecsjs/trf.git"
   },
   "sideEffects": false,
   "scripts": {
