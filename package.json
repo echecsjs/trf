@@ -54,7 +54,6 @@
     "typescript"
   ],
   "license": "MIT",
-  "main": "dist/index.js",
   "name": "@echecs/trf",
   "repository": {
     "type": "git",
