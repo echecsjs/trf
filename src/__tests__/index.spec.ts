@@ -2503,3 +2503,26 @@ describe('parse — team round results (801)', () => {
     expect(r3.opponentId).toBeNull();
   });
 });
+
+describe('round-trip — team round results (802)', () => {
+  it('parse then stringify preserves 802 structured data', () => {
+    const input =
+      '### trf26\n012 T\nXXR 3\n' +
+      '802   1 AAA      5      8.0   2 w  2.0     3 b  1.5   FPB    4.0 \n';
+    const parsed = parse(input);
+    expect(parsed).not.toBeNull();
+    const output = stringify(parsed!);
+    const reparsed = parse(output);
+    expect(reparsed?.teamRoundResults).toHaveLength(1);
+    const rec = reparsed!.teamRoundResults![0]!;
+    expect(rec.tag).toBe('802');
+    expect(rec.teamId).toBe(1);
+    expect(rec.matchPoints).toBe(5);
+    expect(rec.gamePoints).toBe(8);
+    expect(rec.results).toHaveLength(3);
+
+    const r3 = rec.results[2] as TeamRoundResult802;
+    expect(r3.type).toBe('FPB');
+    expect(r3.gamePoints).toBe(4);
+  });
+});
