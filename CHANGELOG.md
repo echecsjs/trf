@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.4.0 — 2026-04-18
+
+### Added
+
+- Tags `801` and `802` — informative team round-by-round results. Tag `802`
+  parsed into structured fields (opponent, color, game points, forfeit
+  indicator, bye types). Tag `801` stores raw per-round strings (board-level
+  detail is undocumented in the spec). New `Tournament.teamRoundResults` field.
+- New exported types: `TeamRoundResult`, `TeamRoundResult801`,
+  `TeamRoundResult802`.
+
 ## 3.3.2 — 2026-04-09
 
 ### Changed

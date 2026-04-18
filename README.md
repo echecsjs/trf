@@ -193,6 +193,7 @@ interface Tournament {
   startDate?: string;
   startingRankMethod?: string; // Tag 172 — e.g. 'FRA FIDON'
   teamPairingAllocatedByes?: TeamPairingAllocatedBye; // Tag 320
+  teamRoundResults?: TeamRoundResult[]; // Tags 801/802 — team round-by-round results
   teams?: Team[]; // Tag 310
   teamScoringSystem?: string; // Tag 362 — e.g. 'TW 2.0    TD 1.0    TL 0.0'
   tiebreaks?: string[]; // Tag 202 — codes for breaking ties
@@ -267,6 +268,39 @@ interface ScoringSystem {
   whiteWin?: number;
   win?: number;
   zeroPointBye?: number;
+}
+```
+
+### `TeamRoundResult`
+
+Team round-by-round result record (tags `801` and `802`). One entry per line in
+the TRF file. Tag `802` uses structured per-round fields; tag `801` stores raw
+per-round strings.
+
+```typescript
+interface TeamRoundResult {
+  gamePoints: number;
+  matchPoints: number;
+  nickname?: string;
+  results: TeamRoundResult801[] | TeamRoundResult802[];
+  tag: '801' | '802';
+  teamId: number;
+}
+
+interface TeamRoundResult801 {
+  opponentId: number | null;
+  raw: string; // e.g. 'b =0=1 1234'
+  round: number;
+  type?: 'FPB' | 'HPB' | 'PAB' | 'ZPB';
+}
+
+interface TeamRoundResult802 {
+  color?: 'b' | 'w';
+  forfeit?: boolean;
+  gamePoints: number;
+  opponentId: number | null;
+  round: number;
+  type?: 'FPB' | 'HPB' | 'PAB' | 'ZPB';
 }
 ```
 
