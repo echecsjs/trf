@@ -2317,6 +2317,129 @@ describe('parse — team round results (802)', () => {
 // ---------------------------------------------------------------------------
 // Team round results (801)
 // ---------------------------------------------------------------------------
+describe('stringify — team round results (802)', () => {
+  it('emits 802 tag for TRF26', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 3,
+      teamRoundResults: [
+        {
+          gamePoints: 8,
+          matchPoints: 5,
+          nickname: 'AAA',
+          results: [
+            { color: 'w', gamePoints: 2, opponentId: 2, round: 1 },
+            { color: 'b', gamePoints: 1.5, opponentId: 3, round: 2 },
+            // eslint-disable-next-line unicorn/no-null
+            { gamePoints: 4, opponentId: null, round: 3, type: 'FPB' },
+          ] as TeamRoundResult802[],
+          tag: '802',
+          teamId: 1,
+        },
+      ],
+      version: 'TRF26',
+    };
+    const output = stringify(t);
+    expect(output).toMatch(/^802/m);
+    expect(output).toContain('802');
+  });
+
+  it('does not emit 802 for TRF16', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 3,
+      teamRoundResults: [
+        {
+          gamePoints: 8,
+          matchPoints: 5,
+          results: [
+            { color: 'w', gamePoints: 2, opponentId: 2, round: 1 },
+          ] as TeamRoundResult802[],
+          tag: '802',
+          teamId: 1,
+        },
+      ],
+      version: 'TRF16',
+    };
+    const output = stringify(t);
+    expect(output).not.toMatch(/^802/m);
+  });
+
+  it('emits 802 forfeit indicator', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      teamRoundResults: [
+        {
+          gamePoints: 0,
+          matchPoints: 0,
+          results: [
+            {
+              color: 'b',
+              forfeit: true,
+              gamePoints: 0,
+              opponentId: 2,
+              round: 1,
+            },
+          ] as TeamRoundResult802[],
+          tag: '802',
+          teamId: 1,
+        },
+      ],
+      version: 'TRF26',
+    };
+    const output = stringify(t);
+    expect(output).toMatch(/0\.0f/);
+  });
+});
+
+describe('stringify — team round results (801)', () => {
+  it('emits 801 tag for TRF26', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 2,
+      teamRoundResults: [
+        {
+          gamePoints: 4,
+          matchPoints: 2,
+          nickname: 'AAA',
+          results: [
+            { opponentId: 14, raw: 'b =0=1 1234', round: 1 },
+            // eslint-disable-next-line unicorn/no-null
+            { opponentId: null, raw: 'ZZZZ', round: 2, type: 'ZPB' },
+          ] as TeamRoundResult801[],
+          tag: '801',
+          teamId: 1,
+        },
+      ],
+      version: 'TRF26',
+    };
+    const output = stringify(t);
+    expect(output).toMatch(/^801/m);
+  });
+
+  it('does not emit 801 for TRF16', () => {
+    const t: Tournament = {
+      players: [],
+      rounds: 1,
+      teamRoundResults: [
+        {
+          gamePoints: 2,
+          matchPoints: 1,
+          results: [
+            { opponentId: 14, raw: 'b =0=1 1234', round: 1 },
+          ] as TeamRoundResult801[],
+          tag: '801',
+          teamId: 1,
+        },
+      ],
+      version: 'TRF16',
+    };
+    const output = stringify(t);
+    expect(output).not.toMatch(/^801/m);
+  });
+});
+
 describe('parse — team round results (801)', () => {
   it('parses 801 records from grandmommyscup fixture', () => {
     const result = parse(fixture('grandmommyscup'));

@@ -13,7 +13,13 @@ import {
   ROUND_RESULTS_OFFSET,
 } from './columns.js';
 
-import type { Player, StringifyOptions, Tournament } from './types.js';
+import type {
+  Player,
+  StringifyOptions,
+  TeamRoundResult801,
+  TeamRoundResult802,
+  Tournament,
+} from './types.js';
 
 function pad(value: string, length: number, align: 'left' | 'right'): string {
   return align === 'right' ? value.padStart(length) : value.padEnd(length);
@@ -494,6 +500,77 @@ export default function stringify(
         writeAt(buf, pos, pad(String(id), 4, 'right'));
       }
       lines.push(buf.join('').trimEnd());
+    }
+  }
+
+  // 801/802 — Team round-by-round results (TRF26 only)
+  if (tournament.version === 'TRF26') {
+    for (const record of tournament.teamRoundResults ?? []) {
+      if (record.tag === '801') {
+        const buf801: string[] = Array.from({ length: 22 }, () => ' ');
+        writeAt(buf801, 0, '801');
+        writeAt(buf801, 3, pad(String(record.teamId), 4, 'right'));
+        if (record.nickname !== undefined) {
+          writeAt(buf801, 7, pad(record.nickname.slice(0, 5), 5, 'left'));
+        }
+        writeAt(buf801, 12, pad(String(record.matchPoints), 4, 'right'));
+        writeAt(buf801, 16, pad(record.gamePoints.toFixed(1), 6, 'right'));
+        for (const r of record.results as TeamRoundResult801[]) {
+          const pos = 22 + (r.round - 1) * 16;
+          while (buf801.length < pos + 16) {
+            buf801.push(' ');
+          }
+          if (r.type === undefined) {
+            writeAt(
+              buf801,
+              pos,
+              `  ${pad(String(r.opponentId ?? ''), 3, 'right')} ${r.raw}`,
+            );
+          } else {
+            // Bye: write marker centered in block
+            const BYE_MARKER_801: Record<string, string> = {
+              FPB: 'FFFF',
+              HPB: 'HHHH',
+              PAB: 'PPPP',
+              ZPB: 'ZZZZ',
+            };
+            const marker = BYE_MARKER_801[r.type] ?? 'ZZZZ';
+            writeAt(buf801, pos + 5, `  ${marker}       `);
+          }
+        }
+        lines.push(buf801.join('').trimEnd());
+      } else {
+        // 802
+        const buf802: string[] = Array.from({ length: 28 }, () => ' ');
+        writeAt(buf802, 0, '802');
+        writeAt(buf802, 4, pad(String(record.teamId), 3, 'right'));
+        if (record.nickname !== undefined) {
+          writeAt(buf802, 8, pad(record.nickname.slice(0, 5), 5, 'left'));
+        }
+        writeAt(buf802, 14, pad(record.matchPoints.toFixed(1), 6, 'right'));
+        writeAt(buf802, 21, pad(record.gamePoints.toFixed(1), 6, 'right'));
+        for (const r of record.results as TeamRoundResult802[]) {
+          const pos = 28 + (r.round - 1) * 13;
+          while (buf802.length < pos + 13) {
+            buf802.push(' ');
+          }
+          if (r.type === undefined) {
+            writeAt(buf802, pos, pad(String(r.opponentId ?? ''), 3, 'right'));
+            if (r.color !== undefined) {
+              buf802[pos + 4] = r.color;
+            }
+            writeAt(buf802, pos + 6, pad(r.gamePoints.toFixed(1), 4, 'right'));
+            if (r.forfeit === true) {
+              buf802[pos + 10] = 'f';
+            }
+          } else {
+            // Bye type
+            writeAt(buf802, pos, r.type);
+            writeAt(buf802, pos + 6, pad(r.gamePoints.toFixed(1), 4, 'right'));
+          }
+        }
+        lines.push(buf802.join('').trimEnd());
+      }
     }
   }
 
