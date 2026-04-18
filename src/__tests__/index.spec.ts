@@ -8,6 +8,7 @@ import type {
   ParseError,
   ParseWarning,
   ScoringSystem,
+  TeamRoundResult801,
   TeamRoundResult802,
   Tournament,
 } from '../types.js';
@@ -2310,5 +2311,72 @@ describe('parse — team round results (802)', () => {
     expect(rec!.matchPoints).toBe(5);
     expect(rec!.gamePoints).toBe(8);
     expect(rec!.results).toHaveLength(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Team round results (801)
+// ---------------------------------------------------------------------------
+describe('parse — team round results (801)', () => {
+  it('parses 801 records from grandmommyscup fixture', () => {
+    const result = parse(fixture('grandmommyscup'));
+    const records801 = result?.teamRoundResults?.filter((r) => r.tag === '801');
+    expect(records801).toBeDefined();
+    expect(records801!.length).toBeGreaterThan(0);
+
+    // Team 1 (IND): 14 rounds
+    const team1 = records801!.find((r) => r.teamId === 1);
+    expect(team1).toBeDefined();
+    expect(team1!.matchPoints).toBe(15);
+    expect(team1!.gamePoints).toBe(28);
+    expect(team1!.nickname).toBe('IND');
+    expect(team1!.results).toHaveLength(14);
+
+    const r1 = team1!.results[0] as TeamRoundResult801;
+    expect(r1.round).toBe(1);
+    expect(r1.opponentId).toBe(14);
+    expect(r1.raw).toBe('b =0=1 1234');
+    expect(r1.type).toBeUndefined();
+  });
+
+  it('parses 801 bye types', () => {
+    const result = parse(fixture('grandmommyscup'));
+    const records801 = result?.teamRoundResults?.filter((r) => r.tag === '801');
+
+    // Team 3 (GEO): round 1 is FPB (FFFF)
+    const team3 = records801!.find((r) => r.teamId === 3);
+    const round1 = team3!.results[0] as TeamRoundResult801;
+    expect(round1.type).toBe('FPB');
+    expect(round1.opponentId).toBeNull();
+
+    // Team 7 (USA): round 2 is HPB (HHHH), round 9 is ZPB (ZZZZ)
+    const team7 = records801!.find((r) => r.teamId === 7);
+    const round2 = team7!.results[1] as TeamRoundResult801;
+    expect(round2.type).toBe('HPB');
+    expect(round2.opponentId).toBeNull();
+
+    const round9 = team7!.results[8] as TeamRoundResult801;
+    expect(round9.type).toBe('ZPB');
+    expect(round9.opponentId).toBeNull();
+  });
+
+  it('parses 801 from inline input', () => {
+    const input =
+      '### trf26\n012 T\nXXR 3\n' +
+      '801  1 AAA    5   10.0  14 b =0=1 1234  13 w ==== 1234       ZZZZ        \n';
+    const result = parse(input);
+    const rec = result?.teamRoundResults?.[0];
+    expect(rec).toBeDefined();
+    expect(rec!.tag).toBe('801');
+    expect(rec!.teamId).toBe(1);
+    expect(rec!.results).toHaveLength(3);
+
+    const r1 = rec!.results[0] as TeamRoundResult801;
+    expect(r1.opponentId).toBe(14);
+    expect(r1.raw).toBe('b =0=1 1234');
+
+    const r3 = rec!.results[2] as TeamRoundResult801;
+    expect(r3.type).toBe('ZPB');
+    expect(r3.opponentId).toBeNull();
   });
 });

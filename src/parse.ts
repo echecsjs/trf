@@ -26,6 +26,7 @@ import type {
   ScoringSystem,
   Sex,
   Team,
+  TeamRoundResult801,
   TeamRoundResult802,
   Title,
   Tournament,
@@ -899,6 +900,66 @@ export default function parse(
           tournament.teams ??= [];
           tournament.teams.push(team);
         }
+        break;
+      }
+      case '801': {
+        const BYE_MAP_801: Record<string, 'FPB' | 'HPB' | 'PAB' | 'ZPB'> = {
+          FFFF: 'FPB',
+          HHHH: 'HPB',
+          PPPP: 'PAB',
+          ZZZZ: 'ZPB',
+        };
+
+        const teamId801 = Number(line.slice(3, 7).trim()) || 0;
+        if (teamId801 === 0) break;
+
+        const nickname801 = line.slice(7, 12).trim() || undefined;
+        const matchPoints801 = Number(line.slice(12, 16).trim()) || 0;
+        const gamePoints801 = Number(line.slice(16, 22).trim()) || 0;
+
+        const results801: TeamRoundResult801[] = [];
+        let round801 = 1;
+        for (let pos = 22; pos < line.length; pos += 16) {
+          const block = line.slice(pos, pos + 16);
+          if (block.trim().length === 0) break;
+
+          // Check for bye marker (FFFF, HHHH, ZZZZ anywhere in block)
+          const blockTrimmed = block.trim();
+          const byeType = BYE_MAP_801[blockTrimmed];
+          if (byeType === undefined) {
+            // Normal round: opponent in first ~4 chars, rest is raw
+            const oppRaw = block.slice(0, 5).trim();
+            const opponentId = Number(oppRaw) || null; // eslint-disable-line unicorn/no-null
+            const raw = block.slice(5).trimEnd();
+
+            results801.push({
+              opponentId,
+              raw,
+              round: round801,
+            });
+          } else {
+            results801.push({
+              // eslint-disable-next-line unicorn/no-null
+              opponentId: null,
+              raw: blockTrimmed,
+              round: round801,
+              type: byeType,
+            });
+          }
+
+          round801 += 1;
+        }
+
+        tournament.teamRoundResults ??= [];
+        tournament.teamRoundResults.push({
+          gamePoints: gamePoints801,
+          matchPoints: matchPoints801,
+          nickname: nickname801,
+          results: results801,
+          tag: '801',
+          teamId: teamId801,
+        });
+
         break;
       }
       case '802': {
