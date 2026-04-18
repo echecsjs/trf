@@ -8,6 +8,7 @@ import type {
   ParseError,
   ParseWarning,
   ScoringSystem,
+  TeamRoundResult802,
   Tournament,
 } from '../types.js';
 
@@ -2232,5 +2233,82 @@ describe('parse — XXS (extended scoring system)', () => {
     const onWarning = vi.fn<(warning: ParseWarning) => void>();
     parse('012 T\nXXR 9\nXXS WW=1.5 BW=1.0\n', { onWarning });
     expect(onWarning).not.toHaveBeenCalled();
+  });
+});
+
+describe('parse — team round results (802)', () => {
+  it('parses 802 records from grandmommyscup fixture', () => {
+    const result = parse(fixture('grandmommyscup'));
+    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
+    expect(records802).toBeDefined();
+    expect(records802!.length).toBeGreaterThan(0);
+
+    // Team 1 (IND): 14 rounds, no byes, no forfeits
+    const team1 = records802!.find((r) => r.teamId === 1);
+    expect(team1).toBeDefined();
+    expect(team1!.matchPoints).toBe(15);
+    expect(team1!.gamePoints).toBe(28);
+    expect(team1!.nickname).toBe('IND');
+    expect(team1!.results).toHaveLength(14);
+
+    const r1 = team1!.results[0] as TeamRoundResult802;
+    expect(r1.round).toBe(1);
+    expect(r1.opponentId).toBe(14);
+    expect(r1.color).toBe('b');
+    expect(r1.gamePoints).toBe(2);
+    expect(r1.forfeit).toBeUndefined();
+    expect(r1.type).toBeUndefined();
+  });
+
+  it('parses 802 bye types (FPB, HPB, ZPB)', () => {
+    const result = parse(fixture('grandmommyscup'));
+    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
+
+    // Team 3 (GEO): round 1 is FPB
+    const team3 = records802!.find((r) => r.teamId === 3);
+    const round1 = team3!.results[0] as TeamRoundResult802;
+    expect(round1.type).toBe('FPB');
+    expect(round1.opponentId).toBeNull();
+    expect(round1.gamePoints).toBe(4);
+    expect(round1.color).toBeUndefined();
+
+    // Team 7 (USA): round 2 is HPB, round 9+ are ZPB
+    const team7 = records802!.find((r) => r.teamId === 7);
+    const round2 = team7!.results[1] as TeamRoundResult802;
+    expect(round2.type).toBe('HPB');
+    expect(round2.opponentId).toBeNull();
+    expect(round2.gamePoints).toBe(2);
+
+    const round9 = team7!.results[8] as TeamRoundResult802;
+    expect(round9.type).toBe('ZPB');
+    expect(round9.gamePoints).toBe(0);
+  });
+
+  it('parses 802 forfeit indicator', () => {
+    const result = parse(fixture('grandmommyscup'));
+    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
+
+    // Team 2 (UKR): round 6 has forfeit
+    const team2 = records802!.find((r) => r.teamId === 2);
+    const round6 = team2!.results[5] as TeamRoundResult802;
+    expect(round6.opponentId).toBe(24);
+    expect(round6.color).toBe('b');
+    expect(round6.gamePoints).toBe(0);
+    expect(round6.forfeit).toBe(true);
+  });
+
+  it('parses 802 from inline input', () => {
+    const input =
+      '### trf26\n012 T\nXXR 3\n' +
+      '802   1 AAA      5      8.0   2 w  2.0     3 b  1.5   FPB    4.0 \n';
+    const result = parse(input);
+    const rec = result?.teamRoundResults?.[0];
+    expect(rec).toBeDefined();
+    expect(rec!.tag).toBe('802');
+    expect(rec!.teamId).toBe(1);
+    expect(rec!.nickname).toBe('AAA');
+    expect(rec!.matchPoints).toBe(5);
+    expect(rec!.gamePoints).toBe(8);
+    expect(rec!.results).toHaveLength(3);
   });
 });
