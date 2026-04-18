@@ -100,6 +100,31 @@ interface RoundResult {
   round: number;
 }
 
+interface TeamRoundResult {
+  gamePoints: number;
+  matchPoints: number;
+  nickname?: string;
+  results: TeamRoundResult801[] | TeamRoundResult802[];
+  tag: '801' | '802';
+  teamId: number;
+}
+
+interface TeamRoundResult801 {
+  opponentId: number | null;
+  raw: string;
+  round: number;
+  type?: 'FPB' | 'HPB' | 'PAB' | 'ZPB';
+}
+
+interface TeamRoundResult802 {
+  color?: 'b' | 'w';
+  forfeit?: boolean;
+  gamePoints: number;
+  opponentId: number | null;
+  round: number;
+  type?: 'FPB' | 'HPB' | 'PAB' | 'ZPB';
+}
+
 interface Team {
   gamePoints: number;
   matchPoints: number;
@@ -192,6 +217,7 @@ interface Tournament {
   startDate?: string;
   startingRankMethod?: string;
   teamPairingAllocatedByes?: TeamPairingAllocatedBye;
+  teamRoundResults?: TeamRoundResult[];
   teamScoringSystem?: string;
   teams?: Team[];
   tiebreaks?: string[];
@@ -221,6 +247,9 @@ export type {
   StringifyOptions,
   Team,
   TeamPairingAllocatedBye,
+  TeamRoundResult,
+  TeamRoundResult801,
+  TeamRoundResult802,
   Title,
   Tournament,
   Version,

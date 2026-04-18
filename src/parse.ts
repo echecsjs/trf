@@ -26,6 +26,8 @@ import type {
   ScoringSystem,
   Sex,
   Team,
+  TeamRoundResult801,
+  TeamRoundResult802,
   Title,
   Tournament,
   Version,
@@ -898,6 +900,121 @@ export default function parse(
           tournament.teams ??= [];
           tournament.teams.push(team);
         }
+        break;
+      }
+      case '801': {
+        const BYE_MAP_801: Record<string, 'FPB' | 'HPB' | 'PAB' | 'ZPB'> = {
+          FFFF: 'FPB',
+          HHHH: 'HPB',
+          PPPP: 'PAB',
+          ZZZZ: 'ZPB',
+        };
+
+        const teamId801 = Number(line.slice(3, 7).trim()) || 0;
+        if (teamId801 === 0) break;
+
+        const nickname801 = line.slice(7, 12).trim() || undefined;
+        const matchPoints801 = Number(line.slice(12, 16).trim()) || 0;
+        const gamePoints801 = Number(line.slice(16, 22).trim()) || 0;
+
+        const results801: TeamRoundResult801[] = [];
+        let round801 = 1;
+        for (let pos = 22; pos < line.length; pos += 16) {
+          const block = line.slice(pos, pos + 16);
+          if (block.trim().length === 0) break;
+
+          // Check for bye marker (FFFF, HHHH, ZZZZ anywhere in block)
+          const blockTrimmed = block.trim();
+          const byeType = BYE_MAP_801[blockTrimmed];
+          if (byeType === undefined) {
+            // Normal round: opponent in first ~4 chars, rest is raw
+            const oppRaw = block.slice(0, 5).trim();
+            const opponentId = Number(oppRaw) || null; // eslint-disable-line unicorn/no-null
+            const raw = block.slice(5).trimEnd();
+
+            results801.push({
+              opponentId,
+              raw,
+              round: round801,
+            });
+          } else {
+            results801.push({
+              // eslint-disable-next-line unicorn/no-null
+              opponentId: null,
+              raw: blockTrimmed,
+              round: round801,
+              type: byeType,
+            });
+          }
+
+          round801 += 1;
+        }
+
+        tournament.teamRoundResults ??= [];
+        tournament.teamRoundResults.push({
+          gamePoints: gamePoints801,
+          matchPoints: matchPoints801,
+          nickname: nickname801,
+          results: results801,
+          tag: '801',
+          teamId: teamId801,
+        });
+
+        break;
+      }
+      case '802': {
+        const BYE_TYPES_802 = new Set(['FPB', 'HPB', 'PAB', 'ZPB']);
+        const teamId802 = Number(line.slice(4, 7).trim()) || 0;
+        if (teamId802 === 0) break;
+
+        const nickname802 = line.slice(8, 13).trim() || undefined;
+        const matchPoints802 = Number(line.slice(14, 20).trim()) || 0;
+        const gamePoints802 = Number(line.slice(21, 27).trim()) || 0;
+
+        const results802: TeamRoundResult802[] = [];
+        let round802 = 1;
+        for (let pos = 28; pos < line.length; pos += 13) {
+          const block = line.slice(pos, pos + 13);
+          if (block.trim().length === 0) break;
+
+          const oppRaw = block.slice(0, 3).trim();
+          const isBye = BYE_TYPES_802.has(oppRaw);
+
+          const colorRaw = block[4]?.trim() ?? '';
+          const gpRaw = block.slice(6, 10).trim();
+          const forfeitRaw = block[10]?.trim() ?? '';
+
+          const entry: TeamRoundResult802 = {
+            gamePoints: Number(gpRaw) || 0,
+            // eslint-disable-next-line unicorn/no-null
+            opponentId: isBye ? null : Number(oppRaw) || null,
+            round: round802,
+          };
+
+          if (isBye) {
+            entry.type = oppRaw as 'FPB' | 'HPB' | 'PAB' | 'ZPB';
+          }
+          if (colorRaw === 'w' || colorRaw === 'b') {
+            entry.color = colorRaw;
+          }
+          if (forfeitRaw === 'f' || forfeitRaw === 'F') {
+            entry.forfeit = true;
+          }
+
+          results802.push(entry);
+          round802 += 1;
+        }
+
+        tournament.teamRoundResults ??= [];
+        tournament.teamRoundResults.push({
+          gamePoints: gamePoints802,
+          matchPoints: matchPoints802,
+          nickname: nickname802,
+          results: results802,
+          tag: '802',
+          teamId: teamId802,
+        });
+
         break;
       }
       default: {
