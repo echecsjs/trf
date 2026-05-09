@@ -62,26 +62,32 @@ pnpm lint && pnpm test && pnpm build
 
 ## Common Data Model
 
-`@echecs/trf` and `@echecs/tunx` both produce and consume a `Tournament` type
-with compatible structure. The core shared shape:
+`@echecs/trf` uses `TournamentData` from `@echecs/tournament` as its base type.
+`parse()` returns `Tournament` (which extends `TournamentData` with TRF-specific
+fields). `stringify()` accepts `Tournament`.
 
-- `Tournament` — top-level container with `players: Player[]`, `rounds: number`,
-  and optional metadata (`name`, `chiefArbiter`, `startDate`, `endDate`, etc.).
-- `Player` — structurally identical across both packages: `name`,
-  `pairingNumber`, `points`, `rank`, `results: RoundResult[]`, plus optional
-  FIDE fields.
-- `RoundResult` — `round`, `color`, `opponentId`, `result: ResultCode`.
-- `ResultCode` — same union: `'1'`, `'0'`, `'='`, `'+'`, `'-'`, `'W'`, `'D'`,
-  `'L'`, etc.
+Core types from `@echecs/tournament`:
 
-TRF's `Tournament` is a superset (teams, scoring systems, acceleration, byes).
-TUNX's `Tournament` adds format-specific fields (`_raw`, `pairings`, `header`).
-The types are duplicated, not shared — each package defines its own.
+- `TournamentData` — `players: Player[]`, `completedRounds: CompletedRound[]`,
+  `totalRounds: number`, `metadata?: TournamentMetadata`, etc.
+- `Player` — `id: string`, `points: number`, `rank: number`, plus optional FIDE
+  fields (`name`, `rating`, `fideId`, `title`, `sex`, `birthDate`, `federation`,
+  `startingRank`, `nationalRatings`).
+- `CompletedRound` — `games: Game[]`, `byes: Bye[]`.
+- `Game` — discriminated union: `{ white, black, result, rated?, forfeit? }`.
+- `Bye` — `{ kind: 'full' | 'half' | 'pairing' | 'zero', player: string }`.
 
-When modifying shared types (`Player`, `RoundResult`, `ResultCode`, or the
-common `Tournament` fields), keep both packages in sync. Changes to one must be
-reflected in the other so their `parse()` output remains structurally
-compatible.
+TRF-specific types (not in tournament):
+
+- `TrfBye` — tag 240 bye records with `playerIds[]` and `round`.
+- `AbnormalPoints` — tag 299 records.
+- `ForfeitedMatch`, `OutOfOrderLineup`, `TeamPairingAllocatedBye`,
+  `TeamRoundResult`, `TeamRoundResult801`, `TeamRoundResult802`.
+- `Version` — `'TRF16' | 'TRF26'`.
+- `ResultCode` — internal to parse/stringify, not exported.
+
+`Player.id` is `String(pairingNumber)`. `Player.startingRank` preserves the
+numeric pairing number for lossless TRF round-trips.
 
 ---
 
