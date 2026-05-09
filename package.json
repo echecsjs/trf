@@ -39,7 +39,7 @@
     "README.md",
     "CHANGELOG.md"
   ],
-  "homepage": "https://github.com/echecsjs/trf#readme",
+  "homepage": "https://trf.echecs.dev",
   "keywords": [
     "arbiter",
     "chess",
