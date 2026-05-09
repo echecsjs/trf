@@ -79,6 +79,6 @@
     "test:watch": "pnpm run test --watch"
   },
   "type": "module",
-  "types": "dist/index.d.ts",
+  "types": "./dist/index.d.ts",
   "version": "3.4.0"
 }
