@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@echecs/trf)](https://www.npmjs.com/package/@echecs/trf)
 [![Coverage](https://codecov.io/gh/echecsjs/trf/branch/main/graph/badge.svg)](https://codecov.io/gh/echecsjs/trf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Spec](https://img.shields.io/badge/Spec-FIDE-green.svg)](SPEC.md)
 
 **TRF** is a TypeScript parser and serializer for the
 [FIDE Tournament Report File](https://handbook.fide.com/files/handbook/TRF26.pdf)
