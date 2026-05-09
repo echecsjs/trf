@@ -20,6 +20,15 @@ import type {
   TeamRoundResult802,
   Tournament,
 } from './types.js';
+import type { Game } from '@echecs/tournament';
+
+// Per-player round result reconstructed from CompletedRound[]
+interface ReconstructedResult {
+  color: 'b' | 'w' | '-';
+  opponentId: string | null;
+  result: string;
+  round: number;
+}
 
 function pad(value: string, length: number, align: 'left' | 'right'): string {
   return align === 'right' ? value.padStart(length) : value.padEnd(length);
@@ -31,9 +40,114 @@ function writeAt(buf: string[], col: number, value: string): void {
   }
 }
 
+/**
+ * Reconstruct per-player round results from completedRounds[].
+ * Returns an array of result entries sorted by round number.
+ */
+function reconstructPlayerResults(
+  player: Player,
+  tournament: Tournament,
+): ReconstructedResult[] {
+  const results: ReconstructedResult[] = [];
+
+  for (const [roundIndex, round] of tournament.completedRounds.entries()) {
+    const roundNumber = roundIndex + 1;
+
+    // Check for bye first
+    const bye = round.byes.find((b) => b.player === player.id);
+    if (bye !== undefined) {
+      let result: string;
+      switch (bye.kind) {
+        case 'full': {
+          result = 'F';
+          break;
+        }
+        case 'half': {
+          result = 'H';
+          break;
+        }
+        case 'pairing': {
+          result = 'U';
+          break;
+        }
+        case 'zero': {
+          result = 'Z';
+          break;
+        }
+        default: {
+          result = 'Z';
+        }
+      }
+      results.push({
+        color: '-',
+        // eslint-disable-next-line unicorn/no-null
+        opponentId: null,
+        result,
+        round: roundNumber,
+      });
+      continue;
+    }
+
+    // Find the game involving this player
+    const game = round.games.find(
+      (g) => 'result' in g && (g.white === player.id || g.black === player.id),
+    ) as Game | undefined;
+
+    if (game === undefined) {
+      continue;
+    }
+
+    const isWhite = game.white === player.id;
+    const opponentId = isWhite ? game.black : game.white;
+    const color: 'w' | 'b' = isWhite ? 'w' : 'b';
+
+    let result: string;
+
+    if ('forfeit' in game && game.forfeit !== undefined) {
+      if (game.forfeit === 'both') {
+        result = '-';
+      } else if (
+        (game.forfeit === 'black' && isWhite) ||
+        (game.forfeit === 'white' && !isWhite)
+      ) {
+        // This player wins by forfeit
+        result = '+';
+      } else {
+        // This player forfeits
+        result = '-';
+      }
+    } else {
+      // Rated or unrated game
+      const rated = 'rated' in game ? (game.rated ?? true) : true;
+      if (game.result === 'draw') {
+        result = rated ? '=' : 'D';
+      } else if (
+        (game.result === 'white' && isWhite) ||
+        (game.result === 'black' && !isWhite)
+      ) {
+        // This player wins
+        result = rated ? '1' : 'W';
+      } else {
+        // This player loses
+        result = rated ? '0' : 'L';
+      }
+    }
+
+    results.push({
+      color,
+      opponentId,
+      result,
+      round: roundNumber,
+    });
+  }
+
+  return results;
+}
+
 function stringifyPlayerLine(
   player: Player,
   playerIndex: number,
+  tournament: Tournament,
   onWarning?: StringifyOptions['onWarning'],
 ): string {
   function warnIfTruncated(
@@ -60,12 +174,9 @@ function stringifyPlayerLine(
   buf[1] = '0';
   buf[2] = '1';
 
-  // Pairing number — right-aligned in 4 chars at col 4
-  writeAt(
-    buf,
-    COL_PAIRING_NUMBER,
-    pad(String(player.pairingNumber), 4, 'right'),
-  );
+  // Pairing number — use startingRank if available, otherwise numeric id
+  const pairingNumber = player.startingRank ?? Number(player.id);
+  writeAt(buf, COL_PAIRING_NUMBER, pad(String(pairingNumber), 4, 'right'));
 
   // Sex — single char at col 9
   if (player.sex !== undefined) {
@@ -78,8 +189,9 @@ function stringifyPlayerLine(
   }
 
   // Name — left-aligned in 33 chars at col 14
-  warnIfTruncated(player.name, 'name', 33, COL_NAME);
-  writeAt(buf, COL_NAME, pad(player.name.slice(0, 33), 33, 'left'));
+  const name = player.name ?? '';
+  warnIfTruncated(name, 'name', 33, COL_NAME);
+  writeAt(buf, COL_NAME, pad(name.slice(0, 33), 33, 'left'));
 
   // Rating — right-aligned in 4 chars at col 48
   if (player.rating !== undefined) {
@@ -115,9 +227,10 @@ function stringifyPlayerLine(
   // Rank — right-aligned in 5 chars at col 84
   writeAt(buf, COL_RANK, pad(String(player.rank), 5, 'right'));
 
-  // Round results — each 10 chars starting at col 91
-  if (player.results.length > 0) {
-    for (const result of player.results) {
+  // Round results — reconstruct from completedRounds
+  const results = reconstructPlayerResults(player, tournament);
+  if (results.length > 0) {
+    for (const result of results) {
       const slot =
         ROUND_RESULTS_OFFSET + (result.round - 1) * ROUND_ENTRY_LENGTH;
       // Extend buffer if needed
@@ -128,7 +241,7 @@ function stringifyPlayerLine(
       const opponentString =
         result.opponentId === null
           ? '0000'
-          : String(result.opponentId).padStart(4, ' ');
+          : String(Number(result.opponentId)).padStart(4, ' ');
       const entry = `${opponentString} ${result.color} ${result.result}  `;
       writeAt(buf, slot, entry);
     }
@@ -147,26 +260,28 @@ export default function stringify(
 ): string {
   const lines: string[] = [];
 
+  const meta = tournament.metadata;
+
   if (tournament.version === 'TRF26') {
-    for (const comment of tournament.comments ?? []) {
+    for (const comment of meta?.comments ?? []) {
       lines.push(`### ${comment}`);
     }
   }
 
-  if (tournament.name !== undefined) {
-    lines.push(`012 ${tournament.name}`);
+  if (meta?.name !== undefined) {
+    lines.push(`012 ${meta.name}`);
   }
-  if (tournament.city !== undefined) {
-    lines.push(`022 ${tournament.city}`);
+  if (meta?.city !== undefined) {
+    lines.push(`022 ${meta.city}`);
   }
-  if (tournament.federation !== undefined) {
-    lines.push(`032 ${tournament.federation}`);
+  if (meta?.federation !== undefined) {
+    lines.push(`032 ${meta.federation}`);
   }
-  if (tournament.startDate !== undefined) {
-    lines.push(`042 ${tournament.startDate}`);
+  if (meta?.startDate !== undefined) {
+    lines.push(`042 ${meta.startDate}`);
   }
-  if (tournament.endDate !== undefined) {
-    lines.push(`052 ${tournament.endDate}`);
+  if (meta?.endDate !== undefined) {
+    lines.push(`052 ${meta.endDate}`);
   }
   if (tournament.numberOfPlayers !== undefined) {
     lines.push(`062 ${tournament.numberOfPlayers}`);
@@ -177,19 +292,19 @@ export default function stringify(
   if (tournament.numberOfTeams !== undefined) {
     lines.push(`082 ${tournament.numberOfTeams}`);
   }
-  if (tournament.tournamentType !== undefined) {
-    lines.push(`092 ${tournament.tournamentType}`);
+  if (meta?.tournamentType !== undefined) {
+    lines.push(`092 ${meta.tournamentType}`);
   }
-  if (tournament.chiefArbiter !== undefined) {
-    lines.push(`102 ${tournament.chiefArbiter}`);
+  if (meta?.chiefArbiter !== undefined) {
+    lines.push(`102 ${meta.chiefArbiter}`);
   }
-  for (const arbiter of tournament.deputyArbiters ?? []) {
+  for (const arbiter of meta?.deputyArbiters ?? []) {
     lines.push(`112 ${arbiter}`);
   }
-  if (tournament.timeControl !== undefined) {
-    lines.push(`122 ${tournament.timeControl}`);
+  if (meta?.timeControl !== undefined) {
+    lines.push(`122 ${meta.timeControl}`);
   }
-  if (tournament.roundDates !== undefined && tournament.roundDates.length > 0) {
+  if (meta?.roundDates !== undefined && meta.roundDates.length > 0) {
     // Round dates occupy 10-char slots starting at col 91 (same as 001 round results).
     const buf: string[] = Array.from(
       { length: ROUND_RESULTS_OFFSET },
@@ -198,7 +313,7 @@ export default function stringify(
     buf[0] = '1';
     buf[1] = '3';
     buf[2] = '2';
-    for (const [index, date] of tournament.roundDates.entries()) {
+    for (const [index, date] of meta.roundDates.entries()) {
       const pos = ROUND_RESULTS_OFFSET + index * ROUND_ENTRY_LENGTH;
       while (buf.length < pos + ROUND_ENTRY_LENGTH) {
         buf.push(' ');
@@ -207,8 +322,8 @@ export default function stringify(
     }
     lines.push(buf.join('').trimEnd());
   }
-  if (tournament.rounds > 0) {
-    lines.push(`XXR ${tournament.rounds}`);
+  if (tournament.totalRounds > 0) {
+    lines.push(`XXR ${tournament.totalRounds}`);
   }
 
   if (
@@ -222,7 +337,7 @@ export default function stringify(
     const pointsPart = pa.points
       .map((p) => pad(p.toFixed(1), 4, 'right'))
       .join(' ');
-    lines.push(`XXA${pad(String(pa.pairingNumber), 4, 'right')} ${pointsPart}`);
+    lines.push(`XXA${pad(pa.playerId, 4, 'right')} ${pointsPart}`);
   }
 
   {
@@ -274,8 +389,8 @@ export default function stringify(
   }
 
   if (tournament.version === 'TRF26') {
-    if (tournament.rounds > 0) {
-      lines.push(`142 ${tournament.rounds}`);
+    if (tournament.totalRounds > 0) {
+      lines.push(`142 ${tournament.totalRounds}`);
     }
     if (tournament.initialColour !== undefined) {
       lines.push(`152 ${tournament.initialColour}`);
@@ -300,8 +415,8 @@ export default function stringify(
     if (tournament.startingRankMethod !== undefined) {
       lines.push(`172 ${tournament.startingRankMethod}`);
     }
-    if (tournament.pairingController !== undefined) {
-      lines.push(`182 ${tournament.pairingController}`);
+    if (meta?.pairingController !== undefined) {
+      lines.push(`182 ${meta.pairingController}`);
     }
     if (tournament.encodedTournamentType !== undefined) {
       lines.push(`192 ${tournament.encodedTournamentType}`);
@@ -327,7 +442,9 @@ export default function stringify(
   }
 
   for (const [index, player] of tournament.players.entries()) {
-    lines.push(stringifyPlayerLine(player, index, options?.onWarning));
+    lines.push(
+      stringifyPlayerLine(player, index, tournament, options?.onWarning),
+    );
   }
 
   // NRS records — emitted after all 001 records, TRF26 only
@@ -337,13 +454,16 @@ export default function stringify(
         const buf: string[] = Array.from({ length: COL_RANK + 5 }, () => ' ');
         // Federation code as record type (3 chars)
         writeAt(buf, 0, nrs.federation.slice(0, 3));
+        const nrsPairingNumber = player.startingRank ?? Number(player.id);
         writeAt(
           buf,
           COL_PAIRING_NUMBER,
-          pad(String(nrs.pairingNumber), 4, 'right'),
+          pad(String(nrsPairingNumber), 4, 'right'),
         );
-        if (nrs.sex !== undefined) {
-          buf[COL_SEX] = nrs.sex;
+        // NationalRating from @echecs/tournament has no sex field; use player's
+        // sex for NRS records as per TRF26 spec
+        if (player.sex !== undefined) {
+          buf[COL_SEX] = player.sex;
         }
         if (nrs.classification !== undefined) {
           writeAt(
@@ -352,13 +472,11 @@ export default function stringify(
             pad(nrs.classification.slice(0, 3), 3, 'left'),
           );
         }
-        if (nrs.name !== undefined) {
-          writeAt(buf, COL_NAME, pad(nrs.name.slice(0, 33), 33, 'left'));
+        // Use player's name for the NRS record (TRF26 spec mirrors the player name)
+        if (player.name !== undefined) {
+          writeAt(buf, COL_NAME, pad(player.name.slice(0, 33), 33, 'left'));
         }
         writeAt(buf, COL_RATING, pad(String(nrs.rating), 4, 'right'));
-        if (nrs.origin !== undefined) {
-          writeAt(buf, COL_FEDERATION, pad(nrs.origin.slice(0, 3), 3, 'left'));
-        }
         if (nrs.nationalId !== undefined) {
           writeAt(
             buf,
@@ -366,11 +484,12 @@ export default function stringify(
             pad(nrs.nationalId.slice(0, 12), 12, 'left'),
           );
         }
-        if (nrs.birthDate !== undefined) {
+        // Use player's birthDate for NRS records
+        if (player.birthDate !== undefined) {
           writeAt(
             buf,
             COL_BIRTH_DATE,
-            pad(nrs.birthDate.slice(0, 10), 10, 'left'),
+            pad(player.birthDate.slice(0, 10), 10, 'left'),
           );
         }
         lines.push(buf.join('').trimEnd());
@@ -382,7 +501,7 @@ export default function stringify(
   if (tournament.version === 'TRF26') {
     for (const bye of tournament.byes ?? []) {
       const playerPart = bye.playerIds
-        .map((id) => String(id).padStart(4))
+        .map((id) => String(Number(id)).padStart(4))
         .join(' ');
       lines.push(
         `240 ${bye.type} ${String(bye.round).padStart(3)} ${playerPart}`,
@@ -394,7 +513,7 @@ export default function stringify(
   if (tournament.version === 'TRF26') {
     for (const accumulator of tournament.acceleratedRounds ?? []) {
       lines.push(
-        `250 ${accumulator.matchPoints.toFixed(1).padStart(4)} ${accumulator.gamePoints.toFixed(1).padStart(4)} ${String(accumulator.firstRound).padStart(3)} ${String(accumulator.lastRound).padStart(3)} ${String(accumulator.firstPlayerId).padStart(4)} ${String(accumulator.lastPlayerId).padStart(4)}`,
+        `250 ${accumulator.matchPoints.toFixed(1).padStart(4)} ${accumulator.gamePoints.toFixed(1).padStart(4)} ${String(accumulator.firstRound).padStart(3)} ${String(accumulator.lastRound).padStart(3)} ${String(Number(accumulator.firstPlayerId)).padStart(4)} ${String(Number(accumulator.lastPlayerId)).padStart(4)}`,
       );
     }
   }
@@ -412,7 +531,7 @@ export default function stringify(
     for (const pp of tournament.prohibitedPairings ?? []) {
       if (pp.firstRound !== 0 || pp.lastRound !== 0) {
         const idPart = pp.playerIds
-          .map((id) => String(id).padStart(4))
+          .map((id) => String(Number(id)).padStart(4))
           .join(' ');
         lines.push(
           `260 ${String(pp.firstRound).padStart(3)} ${String(pp.lastRound).padStart(3)} ${idPart}`,
@@ -428,7 +547,8 @@ export default function stringify(
       const idPart =
         ab.playerIds.length === 0
           ? ''
-          : ' ' + ab.playerIds.map((id) => String(id).padStart(4)).join(' ');
+          : ' ' +
+            ab.playerIds.map((id) => String(Number(id)).padStart(4)).join(' ');
       lines.push(
         `299 ${ab.type}  ${ab.matchPoints.toFixed(1).padStart(4)}  ${ab.gamePoints.toFixed(1).padStart(4)}  ${roundPart}${idPart}`,
       );
@@ -439,10 +559,10 @@ export default function stringify(
   if (tournament.version === 'TRF26') {
     for (const ool of tournament.outOfOrderLineups ?? []) {
       const idPart = ool.playerIds
-        .map((id) => (id === null ? '0000' : String(id).padStart(4)))
+        .map((id) => (id === null ? '0000' : String(Number(id)).padStart(4)))
         .join(' ');
       lines.push(
-        `300 ${String(ool.round).padStart(3)} ${String(ool.teamId).padStart(3)} ${String(ool.opponentTeamId).padStart(3)} ${idPart}`,
+        `300 ${String(Number(ool.round)).padStart(3)} ${String(Number(ool.teamId)).padStart(3)} ${String(Number(ool.opponentTeamId)).padStart(3)} ${idPart}`,
       );
     }
   }
@@ -454,7 +574,7 @@ export default function stringify(
   ) {
     const pab = tournament.teamPairingAllocatedByes;
     const roundParts = pab.teamIdPerRound
-      .map((id) => (id === null ? '000' : String(id).padStart(3)))
+      .map((id) => (id === null ? '000' : String(Number(id)).padStart(3)))
       .join(' ');
     lines.push(
       `320 ${pab.matchPoints.toFixed(1).padStart(4)} ${pab.gamePoints.toFixed(1).padStart(4)} ${roundParts}`,
@@ -465,7 +585,7 @@ export default function stringify(
   if (tournament.version === 'TRF26') {
     for (const fm of tournament.forfeitedMatches ?? []) {
       lines.push(
-        `330 ${fm.type} ${String(fm.round).padStart(3)} ${String(fm.whiteTeamId).padStart(3)} ${String(fm.blackTeamId).padStart(3)}`,
+        `330 ${fm.type} ${String(Number(fm.round)).padStart(3)} ${String(Number(fm.whiteTeamId)).padStart(3)} ${String(Number(fm.blackTeamId)).padStart(3)}`,
       );
     }
   }
@@ -477,17 +597,10 @@ export default function stringify(
       buf[0] = '3';
       buf[1] = '1';
       buf[2] = '0';
-      writeAt(buf, 4, pad(String(team.pairingNumber), 3, 'right'));
+      writeAt(buf, 4, pad(String(Number(team.id)), 3, 'right'));
       writeAt(buf, 8, pad(team.name.slice(0, 32), 32, 'left'));
       if (team.nickname !== undefined) {
         writeAt(buf, 41, pad(team.nickname.slice(0, 5), 5, 'left'));
-      }
-      if (team.strengthFactor !== undefined) {
-        writeAt(
-          buf,
-          47,
-          pad(String(team.strengthFactor).slice(0, 6), 6, 'left'),
-        );
       }
       writeAt(buf, 54, pad(team.matchPoints.toFixed(1), 6, 'right'));
       writeAt(buf, 61, pad(team.gamePoints.toFixed(1), 6, 'right'));
@@ -497,7 +610,7 @@ export default function stringify(
         while (buf.length < pos + 4) {
           buf.push(' ');
         }
-        writeAt(buf, pos, pad(String(id), 4, 'right'));
+        writeAt(buf, pos, pad(String(Number(id)), 4, 'right'));
       }
       lines.push(buf.join('').trimEnd());
     }
@@ -509,7 +622,7 @@ export default function stringify(
       if (record.tag === '801') {
         const buf801: string[] = Array.from({ length: 22 }, () => ' ');
         writeAt(buf801, 0, '801');
-        writeAt(buf801, 3, pad(String(record.teamId), 4, 'right'));
+        writeAt(buf801, 3, pad(String(Number(record.teamId)), 4, 'right'));
         if (record.nickname !== undefined) {
           writeAt(buf801, 7, pad(record.nickname.slice(0, 5), 5, 'left'));
         }
@@ -521,11 +634,9 @@ export default function stringify(
             buf801.push(' ');
           }
           if (r.type === undefined) {
-            writeAt(
-              buf801,
-              pos,
-              `  ${pad(String(r.opponentId ?? ''), 3, 'right')} ${r.raw}`,
-            );
+            const oppString =
+              r.opponentId === null ? '' : String(Number(r.opponentId));
+            writeAt(buf801, pos, `  ${pad(oppString, 3, 'right')} ${r.raw}`);
           } else {
             // Bye: write marker centered in block
             const BYE_MARKER_801: Record<string, string> = {
@@ -543,7 +654,7 @@ export default function stringify(
         // 802
         const buf802: string[] = Array.from({ length: 28 }, () => ' ');
         writeAt(buf802, 0, '802');
-        writeAt(buf802, 4, pad(String(record.teamId), 3, 'right'));
+        writeAt(buf802, 4, pad(String(Number(record.teamId)), 3, 'right'));
         if (record.nickname !== undefined) {
           writeAt(buf802, 8, pad(record.nickname.slice(0, 5), 5, 'left'));
         }
@@ -555,7 +666,9 @@ export default function stringify(
             buf802.push(' ');
           }
           if (r.type === undefined) {
-            writeAt(buf802, pos, pad(String(r.opponentId ?? ''), 3, 'right'));
+            const oppString =
+              r.opponentId === null ? '' : String(Number(r.opponentId));
+            writeAt(buf802, pos, pad(oppString, 3, 'right'));
             if (r.color !== undefined) {
               buf802[pos + 4] = r.color;
             }
