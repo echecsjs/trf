@@ -10,7 +10,7 @@ import type {
   ScoringSystem,
   TeamRoundResult801,
   TeamRoundResult802,
-  Tournament,
+  TournamentData,
 } from '../types.js';
 
 function fixture(name: string): string {
@@ -100,18 +100,6 @@ describe('parse — header tags', () => {
     );
   });
 
-  it('parses number of players from 062 tag', () => {
-    expect(parse('012 T\n062 100\nXXR 1\n')?.numberOfPlayers).toBe(100);
-  });
-
-  it('parses number of rated players from 072 tag', () => {
-    expect(parse('012 T\n072 80\nXXR 1\n')?.numberOfRatedPlayers).toBe(80);
-  });
-
-  it('parses number of teams from 082 tag', () => {
-    expect(parse('012 T\n082 10\nXXR 1\n')?.numberOfTeams).toBe(10);
-  });
-
   it('parses rounds from XXR tag', () => {
     expect(parse('012 T\nXXR 9\n')?.totalRounds).toBe(9);
   });
@@ -121,10 +109,6 @@ describe('parse — header tags', () => {
     const result = parse('012 T\nXXR 1\nZZZ unknown tag\n', { onWarning });
     expect(result).not.toBeNull();
     expect(onWarning).toHaveBeenCalledOnce();
-  });
-
-  it('returns version TRF16 for standard input', () => {
-    expect(parse('012 T\nXXR 1\n')?.version).toBe('TRF16');
   });
 
   it('returns tournament with empty players when no 001 lines', () => {
@@ -645,10 +629,6 @@ describe('parse — grandmommyscup fixture', () => {
     expect(result).not.toBeNull();
   });
 
-  it('detects version TRF26', () => {
-    expect(result?.version).toBe('TRF26');
-  });
-
   // --- Tournament header tags ---
 
   it('parses tournament name from 012', () => {
@@ -673,10 +653,6 @@ describe('parse — grandmommyscup fixture', () => {
 
   it('parses rounds from 142 tag', () => {
     expect(result?.totalRounds).toBe(14);
-  });
-
-  it('parses initialColour B from 152', () => {
-    expect(result?.initialColour).toBe('B');
   });
 
   // --- Player records ---
@@ -715,12 +691,6 @@ describe('parse — grandmommyscup fixture', () => {
     expect(result?.teams?.[0]?.name).toBe('India');
   });
 
-  // --- Bye records (240) ---
-
-  it('parses bye records from 240', () => {
-    expect(result?.byes?.length).toBeGreaterThan(0);
-  });
-
   // --- Prohibited pairings (260) ---
 
   it('parses 3 prohibited pairing records from 260', () => {
@@ -731,24 +701,6 @@ describe('parse — grandmommyscup fixture', () => {
 
   it('parses 4 accelerated round records from 250', () => {
     expect(result?.acceleratedRounds).toHaveLength(4);
-  });
-
-  // --- Out-of-order lineups (300) ---
-
-  it('parses out-of-order lineup records from 300', () => {
-    expect(result?.outOfOrderLineups?.length).toBeGreaterThan(0);
-  });
-
-  // --- Team PAB (320) ---
-
-  it('parses team pairing allocated bye record from 320', () => {
-    expect(result?.teamPairingAllocatedByes).toBeDefined();
-  });
-
-  // --- Forfeited matches (330) ---
-
-  it('parses 22 forfeited match records from 330', () => {
-    expect(result?.forfeitedMatches).toHaveLength(22);
   });
 
   // --- Warning behaviour ---
@@ -855,38 +807,36 @@ describe('parse — round result edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version detection
+// Version detection — version is now internal; parse no longer returns it.
+// We test version-dependent behaviour (TRF26 tags parsed correctly).
 // ---------------------------------------------------------------------------
 describe('parse — version detection', () => {
-  it('returns TRF16 for standard TRF16 input', () => {
-    expect(parse('012 T\nXXR 1\n')?.version).toBe('TRF16');
+  it('parses correctly for standard TRF16 input', () => {
+    expect(parse('012 T\nXXR 1\n')).not.toBeNull();
   });
 
-  it('returns TRF26 when ### comment line is present', () => {
-    expect(parse('### comment\n012 T\nXXR 1\n')?.version).toBe('TRF26');
+  it('parses rounds from 142 tag (TRF26)', () => {
+    expect(parse('012 T\n142 9\n')?.totalRounds).toBe(9);
   });
 
-  it('returns TRF26 when 142 tag is present', () => {
-    expect(parse('012 T\n142 9\n')?.version).toBe('TRF26');
+  it('parses team record when 310 record is present (TRF26)', () => {
+    expect(parse('012 T\nXXR 1\n310   1 India\n')?.teams).toHaveLength(1);
   });
 
-  it('returns TRF26 when 310 record is present', () => {
-    expect(parse('012 T\nXXR 1\n310   1 India\n')?.version).toBe('TRF26');
-  });
-
-  it('returns TRF26 when 250 record is present', () => {
+  it('parses accelerated round when 250 record is present (TRF26)', () => {
     expect(
-      parse('012 T\nXXR 1\n250 00.0 02.0 001 003 0001 0090\n')?.version,
-    ).toBe('TRF26');
+      parse('012 T\nXXR 1\n250 00.0 02.0 001 003 0001 0090\n')
+        ?.acceleratedRounds,
+    ).toHaveLength(1);
   });
 
-  it('returns TRF26 when an NRS record (3 uppercase letter tag) is present', () => {
+  it('parses NRS record when 3 uppercase letter tag is present (TRF26)', () => {
     // NRS records use the federation code as the record type (e.g. RUS, FRA)
     expect(
       parse(
-        '012 T\nXXR 1\nRUS    1                                        2851\n',
-      )?.version,
-    ).toBe('TRF26');
+        '012 T\nXXR 1\n001    1 mGM  Kasparov, Garry                   2851 RUS 4100018363   1963-04-13 8.5    1\nRUS    1                                        2851\n',
+      )?.players[0]?.nationalRatings,
+    ).toHaveLength(1);
   });
 });
 
@@ -963,7 +913,7 @@ describe('parse — NRS records', () => {
   });
 });
 
-function playerWithNRS(): Tournament {
+function playerWithNRS(): TournamentData {
   return {
     completedRounds: [],
     players: [
@@ -977,25 +927,24 @@ function playerWithNRS(): Tournament {
       },
     ],
     totalRounds: 1,
-    version: 'TRF26' as const,
   };
 }
 
 describe('stringify — NRS records', () => {
   it('emits NRS records after 001 lines when version is TRF26', () => {
-    const lines = stringify(playerWithNRS()).split('\n');
+    const lines = stringify(playerWithNRS(), { version: 'TRF26' }).split('\n');
     const nrsLine = lines.find((l) => l.startsWith('RUS'));
     expect(nrsLine).toBeDefined();
   });
 
   it('NRS line contains the national rating', () => {
-    const lines = stringify(playerWithNRS()).split('\n');
+    const lines = stringify(playerWithNRS(), { version: 'TRF26' }).split('\n');
     const nrsLine = lines.find((l) => l.startsWith('RUS'));
     expect(nrsLine).toContain('2851');
   });
 
   it('NRS line comes after the 001 line', () => {
-    const lines = stringify(playerWithNRS())
+    const lines = stringify(playerWithNRS(), { version: 'TRF26' })
       .split('\n')
       .filter((l) => l.length > 0);
     const p001Index = lines.findIndex((l) => l.startsWith('001'));
@@ -1004,8 +953,7 @@ describe('stringify — NRS records', () => {
   });
 
   it('does not emit NRS records for TRF16', () => {
-    const t = { ...playerWithNRS(), version: 'TRF16' as const };
-    expect(stringify(t)).not.toMatch(/^RUS/m);
+    expect(stringify(playerWithNRS())).not.toMatch(/^RUS/m);
   });
 });
 
@@ -1014,34 +962,31 @@ describe('stringify — NRS records', () => {
 // ---------------------------------------------------------------------------
 describe('stringify — header tags', () => {
   it('stringifies tournamentType as 092', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { tournamentType: 'Swiss' },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).toContain('092 Swiss');
   });
 
   it('stringifies chiefArbiter as 102', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { chiefArbiter: 'Smith' },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).toContain('102 Smith');
   });
 
   it('stringifies each deputyArbiter as 112', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { deputyArbiters: ['A', 'B'] },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     const out = stringify(t);
     expect(out).toContain('112 A');
@@ -1049,47 +994,40 @@ describe('stringify — header tags', () => {
   });
 
   it('stringifies timeControl as 122', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { timeControl: '90+30' },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).toContain('122 90+30');
   });
 
   it('stringifies numberOfPlayers as 062', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
-      numberOfPlayers: 100,
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
-    expect(stringify(t)).toContain('062 100');
+    expect(stringify(t, { numberOfPlayers: 100 })).toContain('062 100');
   });
 
   it('stringifies numberOfRatedPlayers as 072', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
-      numberOfRatedPlayers: 80,
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
-    expect(stringify(t)).toContain('072 80');
+    expect(stringify(t, { numberOfRatedPlayers: 80 })).toContain('072 80');
   });
 
   it('stringifies numberOfTeams as 082', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
-      numberOfTeams: 10,
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
-    expect(stringify(t)).toContain('082 10');
+    expect(stringify(t, { numberOfTeams: 10 })).toContain('082 10');
   });
 });
 
@@ -1153,20 +1091,6 @@ describe('parse — TRF26 result codes', () => {
 describe('parse — TRF26 tags', () => {
   it('parses rounds from 142 tag', () => {
     expect(parse('### trf26\n012 T\n142 11\n')?.totalRounds).toBe(11);
-  });
-
-  it('parses initialColour W from 152 tag', () => {
-    expect(parse('### trf26\n012 T\n152 W\nXXR 1\n')?.initialColour).toBe('W');
-  });
-
-  it('parses initialColour B from 152 tag', () => {
-    expect(parse('### trf26\n012 T\n152 B\nXXR 1\n')?.initialColour).toBe('B');
-  });
-
-  it('ignores invalid 152 value', () => {
-    expect(
-      parse('### trf26\n012 T\n152 X\nXXR 1\n')?.initialColour,
-    ).toBeUndefined();
   });
 
   it('parses pairingController from 182 tag', () => {
@@ -1253,7 +1177,7 @@ describe('parse — legacy team records (013)', () => {
   });
 });
 
-function teamTournament(): Tournament {
+function teamTournament(): TournamentData {
   return {
     completedRounds: [],
     players: [],
@@ -1269,26 +1193,28 @@ function teamTournament(): Tournament {
       },
     ],
     totalRounds: 2,
-    version: 'TRF26' as const,
   };
 }
 
 describe('stringify — team records', () => {
   it('emits 310 records for TRF26', () => {
-    expect(stringify(teamTournament())).toMatch(/^310/m);
+    expect(stringify(teamTournament(), { version: 'TRF26' })).toMatch(/^310/m);
   });
 
   it('does not emit 310 records for TRF16', () => {
-    const t = { ...teamTournament(), version: 'TRF16' as const };
-    expect(stringify(t)).not.toMatch(/^310/m);
+    expect(stringify(teamTournament())).not.toMatch(/^310/m);
   });
 
   it('stringified 310 line contains team name', () => {
-    expect(stringify(teamTournament())).toContain('India');
+    expect(stringify(teamTournament(), { version: 'TRF26' })).toContain(
+      'India',
+    );
   });
 
   it('stringified 310 line contains team rank', () => {
-    expect(stringify(teamTournament())).toMatch(/310.*11/);
+    expect(stringify(teamTournament(), { version: 'TRF26' })).toMatch(
+      /310.*11/,
+    );
   });
 });
 
@@ -1297,104 +1223,92 @@ describe('stringify — team records', () => {
 // ---------------------------------------------------------------------------
 describe('stringify — TRF26 features', () => {
   it('emits ### comments before other tags when version is TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { comments: ['hello'], name: 'T' },
       players: [],
       totalRounds: 1,
-      version: 'TRF26',
     };
-    const lines = stringify(t).split('\n');
+    const lines = stringify(t, { version: 'TRF26' }).split('\n');
     expect(lines[0]).toBe('### hello');
     expect(lines[1]).toBe('012 T');
   });
 
   it('does not emit ### comments for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { comments: ['hello'] },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).not.toContain('###');
   });
 
   it('emits 142 in addition to XXR when version is TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const out = stringify(t);
+    const out = stringify(t, { version: 'TRF26' });
     expect(out).toContain('142 9');
     expect(out).toContain('XXR 9');
   });
 
   it('does not emit 142 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 9,
-      version: 'TRF16',
     };
     expect(stringify(t)).not.toContain('142');
   });
 
   it('emits 152 initialColour when version is TRF26', () => {
-    const t: Tournament = {
-      completedRounds: [],
-      initialColour: 'W',
-      players: [],
-      totalRounds: 1,
-      version: 'TRF26',
-    };
-    expect(stringify(t)).toContain('152 W');
+    expect(
+      stringify(
+        { completedRounds: [], players: [], totalRounds: 1 },
+        { initialColour: 'W', version: 'TRF26' },
+      ),
+    ).toContain('152 W');
   });
 
   it('does not emit 152 for TRF16', () => {
-    const t: Tournament = {
-      completedRounds: [],
-      initialColour: 'W',
-      players: [],
-      totalRounds: 1,
-      version: 'TRF16',
-    };
-    expect(stringify(t)).not.toContain('152');
+    expect(
+      stringify(
+        { completedRounds: [], players: [], totalRounds: 1 },
+        { initialColour: 'W' },
+      ),
+    ).not.toContain('152');
   });
 
   it('emits 182 pairingController when version is TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { pairingController: 'bbpPairings' },
       players: [],
       totalRounds: 1,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toContain('182 bbpPairings');
+    expect(stringify(t, { version: 'TRF26' })).toContain('182 bbpPairings');
   });
 
   it('does not emit 182 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { pairingController: 'bbpPairings' },
       players: [],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).not.toContain('182');
   });
 
   it('emits 152 B when initialColour is B', () => {
-    const t: Tournament = {
-      completedRounds: [],
-      initialColour: 'B',
-      players: [],
-      totalRounds: 1,
-      version: 'TRF26',
-    };
-    expect(stringify(t)).toContain('152 B');
+    expect(
+      stringify(
+        { completedRounds: [], players: [], totalRounds: 1 },
+        { initialColour: 'B', version: 'TRF26' },
+      ),
+    ).toContain('152 B');
   });
 });
 
@@ -1402,22 +1316,10 @@ describe('stringify — TRF26 features', () => {
 // Bye records (240)
 // ---------------------------------------------------------------------------
 describe('parse — bye records (240)', () => {
-  const BYE_INPUT = '### trf26\n012 T\nXXR 3\n240 H 003  026  047\n';
-
-  it('parses bye record into byes array', () => {
-    expect(parse(BYE_INPUT)?.byes).toHaveLength(1);
-  });
-
-  it('parses bye type', () => {
-    expect(parse(BYE_INPUT)?.byes?.[0]?.type).toBe('H');
-  });
-
-  it('parses bye round', () => {
-    expect(parse(BYE_INPUT)?.byes?.[0]?.round).toBe(3);
-  });
-
-  it('parses bye playerIds as string array', () => {
-    expect(parse(BYE_INPUT)?.byes?.[0]?.playerIds).toEqual(['26', '47']);
+  it('ignores bye records from 240 (TRF-specific, not on TournamentData)', () => {
+    const BYE_INPUT = '### trf26\n012 T\nXXR 3\n240 H 003  026  047\n';
+    // byes (tag 240) are dropped from parse output; no assertion needed beyond no-throw
+    expect(parse(BYE_INPUT)).not.toBeNull();
   });
 });
 
@@ -1475,148 +1377,77 @@ describe('parse — accelerated rounds (250)', () => {
 });
 
 describe('parse — forfeited matches (330)', () => {
-  const FM_INPUT = '### trf26\n012 T\nXXR 4\n330 +- 004 023 047\n';
-
-  it('parses forfeited match record', () => {
-    expect(parse(FM_INPUT)?.forfeitedMatches).toHaveLength(1);
-  });
-
-  it('parses forfeit type', () => {
-    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.type).toBe('+-');
-  });
-
-  it('parses round', () => {
-    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.round).toBe(4);
-  });
-
-  it('parses whiteTeamId as string', () => {
-    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.whiteTeamId).toBe('23');
-  });
-
-  it('parses blackTeamId as string', () => {
-    expect(parse(FM_INPUT)?.forfeitedMatches?.[0]?.blackTeamId).toBe('47');
+  it('ignores forfeited match records (TRF-specific, not on TournamentData)', () => {
+    const FM_INPUT = '### trf26\n012 T\nXXR 4\n330 +- 004 023 047\n';
+    expect(parse(FM_INPUT)).not.toBeNull();
   });
 });
 
 describe('parse — out-of-order lineups (300)', () => {
-  const OOO_INPUT =
-    '### trf26\n012 T\nXXR 8\n300 008 021 047 0058 0203 0105 0162\n';
-
-  it('parses out-of-order lineup record', () => {
-    expect(parse(OOO_INPUT)?.outOfOrderLineups).toHaveLength(1);
-  });
-
-  it('parses round', () => {
-    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.round).toBe(8);
-  });
-
-  it('parses teamId as string', () => {
-    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.teamId).toBe('21');
-  });
-
-  it('parses opponentTeamId as string', () => {
-    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.opponentTeamId).toBe('47');
-  });
-
-  it('parses playerIds as string array', () => {
-    expect(parse(OOO_INPUT)?.outOfOrderLineups?.[0]?.playerIds).toEqual([
-      '58',
-      '203',
-      '105',
-      '162',
-    ]);
+  it('ignores out-of-order lineup records (TRF-specific, not on TournamentData)', () => {
+    const OOO_INPUT =
+      '### trf26\n012 T\nXXR 8\n300 008 021 047 0058 0203 0105 0162\n';
+    expect(parse(OOO_INPUT)).not.toBeNull();
   });
 });
 
 describe('parse — team PAB (320)', () => {
-  const PAB_INPUT = '### trf26\n012 T\nXXR 4\n320 01.0 02.0 000 000 050 049\n';
-
-  it('parses team PAB record', () => {
-    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes).toBeDefined();
-  });
-
-  it('parses matchPoints', () => {
-    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.matchPoints).toBe(1);
-  });
-
-  it('parses gamePoints', () => {
-    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.gamePoints).toBe(2);
-  });
-
-  it('parses teamIdPerRound with null for 000', () => {
-    expect(parse(PAB_INPUT)?.teamPairingAllocatedByes?.teamIdPerRound).toEqual([
-      // eslint-disable-next-line unicorn/no-null
-      null,
-      // eslint-disable-next-line unicorn/no-null
-      null,
-      '50',
-      '49',
-    ]);
+  it('ignores team pairing allocated bye records (TRF-specific, not on TournamentData)', () => {
+    const PAB_INPUT =
+      '### trf26\n012 T\nXXR 4\n320 01.0 02.0 000 000 050 049\n';
+    expect(parse(PAB_INPUT)).not.toBeNull();
   });
 });
 
 describe('parse — abnormal points (299)', () => {
-  const ABN_INPUT = '### trf26\n012 T\nXXR 2\n299 +   2.0   2.5\n';
+  const ABN_INPUT =
+    '### trf26\n012 T\nXXR 2\n299 +   2.0   2.5   1  0001 0002\n';
 
-  it('parses abnormal points record', () => {
-    expect(parse(ABN_INPUT)?.abnormalPoints).toHaveLength(1);
+  it('converts abnormal points to adjustments', () => {
+    const result = parse(ABN_INPUT);
+    expect(result?.adjustments).toBeDefined();
+    expect(result?.adjustments?.length).toBeGreaterThan(0);
   });
 
-  it('parses type', () => {
-    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.type).toBe('+');
+  it('adjustment has correct points (gamePoints from 299)', () => {
+    const result = parse(ABN_INPUT);
+    expect(result?.adjustments?.[0]?.points).toBe(2.5);
   });
 
-  it('parses matchPoints', () => {
-    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.matchPoints).toBe(2);
-  });
-
-  it('parses gamePoints', () => {
-    expect(parse(ABN_INPUT)?.abnormalPoints?.[0]?.gamePoints).toBe(2.5);
+  it('adjustment has correct playerId', () => {
+    const result = parse(ABN_INPUT);
+    expect(result?.adjustments?.[0]?.playerId).toBe('1');
   });
 });
 
 describe('stringify — bye records (240)', () => {
-  it('emits 240 records for TRF26', () => {
-    const t: Tournament = {
-      byes: [{ playerIds: ['26', '47'], round: 3, type: 'H' }],
+  it('does not emit 240 records (byes are derived from completedRounds)', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 3,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toMatch(/^240/m);
-  });
-
-  it('does not emit 240 for TRF16', () => {
-    const t: Tournament = {
-      byes: [{ playerIds: ['26'], round: 1, type: 'H' }],
-      completedRounds: [],
-      players: [],
-      totalRounds: 1,
-      version: 'TRF16',
-    };
-    expect(stringify(t)).not.toMatch(/^240/m);
+    expect(stringify(t, { version: 'TRF26' })).not.toMatch(/^240/m);
   });
 });
 
 describe('stringify — prohibited pairings (260)', () => {
   it('emits 260 records for TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       prohibitedPairings: [
         { firstRound: 1, lastRound: 2, playerIds: ['125', '180'] },
       ],
       totalRounds: 2,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toMatch(/^260/m);
+    expect(stringify(t, { version: 'TRF26' })).toMatch(/^260/m);
   });
 });
 
 describe('stringify — accelerated rounds (250)', () => {
   it('emits 250 records for TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       acceleratedRounds: [
         {
           firstPlayerId: '1',
@@ -1630,24 +1461,26 @@ describe('stringify — accelerated rounds (250)', () => {
       completedRounds: [],
       players: [],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toMatch(/^250/m);
+    expect(stringify(t, { version: 'TRF26' })).toMatch(/^250/m);
   });
 });
 
 describe('stringify — forfeited matches (330)', () => {
-  it('emits 330 records for TRF26', () => {
-    const t: Tournament = {
+  it('emits 330 records for TRF26 via options', () => {
+    const t: TournamentData = {
       completedRounds: [],
-      forfeitedMatches: [
-        { blackTeamId: '47', round: 4, type: '+-', whiteTeamId: '23' },
-      ],
       players: [],
       totalRounds: 4,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toMatch(/^330/m);
+    expect(
+      stringify(t, {
+        forfeitedMatches: [
+          { blackTeamId: '47', round: 4, type: '+-', whiteTeamId: '23' },
+        ],
+        version: 'TRF26',
+      }),
+    ).toMatch(/^330/m);
   });
 });
 
@@ -1655,26 +1488,19 @@ describe('stringify — forfeited matches (330)', () => {
 // TRF26 round-trip
 // ---------------------------------------------------------------------------
 describe('TRF26 round-trip', () => {
-  it('parse → stringify → parse produces identical Tournament for TRF26 fixture', () => {
+  it('parse → stringify → parse produces stable TournamentData for TRF26 fixture', () => {
     const input = fixture('trf26_team');
     const first = parse(input);
     expect(first).not.toBeNull();
-    expect(first?.version).toBe('TRF26');
-    const reserialized = stringify(first!);
+    const reserialized = stringify(first!, { version: 'TRF26' });
     const second = parse(reserialized);
     expect(second).not.toBeNull();
-    expect(second?.version).toBe('TRF26');
     expect(second?.metadata?.name).toBe(first?.metadata?.name);
     expect(second?.players).toHaveLength(first?.players.length ?? 0);
     expect(second?.teams).toHaveLength(first?.teams?.length ?? 0);
-    expect(second?.byes).toHaveLength(first?.byes?.length ?? 0);
     expect(second?.prohibitedPairings).toHaveLength(
       first?.prohibitedPairings?.length ?? 0,
     );
-  });
-
-  it('TRF26 fixture has version TRF26', () => {
-    expect(parse(fixture('trf26_team'))?.version).toBe('TRF26');
   });
 
   it('TRF26 fixture has correct player count', () => {
@@ -1689,10 +1515,6 @@ describe('TRF26 round-trip', () => {
 
   it('TRF26 fixture has teams', () => {
     expect(parse(fixture('trf26_team'))?.teams).toHaveLength(1);
-  });
-
-  it('TRF26 fixture has bye record', () => {
-    expect(parse(fixture('trf26_team'))?.byes).toHaveLength(1);
   });
 
   it('TRF26 fixture has prohibited pairing', () => {
@@ -1737,33 +1559,30 @@ describe('parse — round dates (132)', () => {
 
 describe('stringify — round dates (132)', () => {
   it('emits 132 line when roundDates is present', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { roundDates: ['26/01/10', '26/01/11', '26/01/12'] },
       players: [],
       totalRounds: 3,
-      version: 'TRF16',
     };
     expect(stringify(t)).toMatch(/^132/m);
   });
 
   it('does not emit 132 when roundDates is absent', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 3,
-      version: 'TRF16',
     };
     expect(stringify(t)).not.toMatch(/^132/m);
   });
 
   it('round dates survive a round-trip', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       metadata: { roundDates: ['26/01/10', '26/01/11', '26/01/12'] },
       players: [],
       totalRounds: 3,
-      version: 'TRF16',
     };
     expect(parse(stringify(t))?.metadata?.roundDates).toEqual([
       '26/01/10',
@@ -1775,7 +1594,7 @@ describe('stringify — round dates (132)', () => {
   it('grandmommyscup round dates survive a round-trip', () => {
     const first = parse(fixture('grandmommyscup'));
     expect(first?.metadata?.roundDates).toHaveLength(14);
-    const second = parse(stringify(first!));
+    const second = parse(stringify(first!, { version: 'TRF26' }));
     expect(second?.metadata?.roundDates).toEqual(first?.metadata?.roundDates);
   });
 });
@@ -1807,26 +1626,10 @@ describe('parse — tiebreak tags (202)', () => {
 });
 
 describe('parse — standings tiebreak tags (212)', () => {
-  const STB_INPUT = '### trf26\n012 T\nXXR 9\n212 PTS,BH C1,BH,SB,DE\n';
-
-  it('parses standingsTiebreaks from 212 tag', () => {
-    expect(parse(STB_INPUT)?.standingsTiebreaks).toEqual([
-      'PTS',
-      'BH C1',
-      'BH',
-      'SB',
-      'DE',
-    ]);
-  });
-
-  it('standingsTiebreaks is undefined when 212 tag is absent', () => {
-    expect(parse('012 T\nXXR 1\n')?.standingsTiebreaks).toBeUndefined();
-  });
-
-  it('does not emit onWarning for 212 tag', () => {
-    const onWarning = vi.fn();
-    parse(STB_INPUT, { onWarning });
-    expect(onWarning).not.toHaveBeenCalled();
+  it('standingsTiebreaks (212) is TRF-specific; not stored on TournamentData', () => {
+    const STB_INPUT = '### trf26\n012 T\nXXR 9\n212 PTS,BH C1,BH,SB,DE\n';
+    // 212 data is dropped; just verify no throw
+    expect(parse(STB_INPUT)).not.toBeNull();
   });
 });
 
@@ -1844,127 +1647,109 @@ describe('parse — grandmommyscup tiebreaks', () => {
 
 describe('stringify — tiebreak tags (202/212)', () => {
   it('emits 202 tag when tiebreaks is present and version is TRF26', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       tiebreaks: ['BH C1', 'BH', 'SB', 'DE'],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toContain('202 BH C1,BH,SB,DE');
+    expect(stringify(t, { version: 'TRF26' })).toContain('202 BH C1,BH,SB,DE');
   });
 
-  it('emits 212 tag when standingsTiebreaks is present and version is TRF26', () => {
-    const t: Tournament = {
+  it('emits 212 tag when standingsTiebreaks is present in options and version is TRF26', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
-      standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    expect(stringify(t)).toContain('212 PTS,BH C1,BH,SB,DE');
+    expect(
+      stringify(t, {
+        standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
+        version: 'TRF26',
+      }),
+    ).toContain('212 PTS,BH C1,BH,SB,DE');
   });
 
   it('does not emit 202 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       tiebreaks: ['BH'],
       totalRounds: 1,
-      version: 'TRF16',
     };
     expect(stringify(t)).not.toMatch(/^202/m);
   });
 
   it('does not emit 212 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
-      standingsTiebreaks: ['PTS'],
       totalRounds: 1,
-      version: 'TRF16',
     };
-    expect(stringify(t)).not.toMatch(/^212/m);
+    expect(stringify(t, { standingsTiebreaks: ['PTS'] })).not.toMatch(/^212/m);
   });
 
   it('does not emit 202 when tiebreaks is undefined', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 1,
-      version: 'TRF26',
     };
-    expect(stringify(t)).not.toMatch(/^202/m);
+    expect(stringify(t, { version: 'TRF26' })).not.toMatch(/^202/m);
   });
 
   it('does not emit 212 when standingsTiebreaks is undefined', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 1,
-      version: 'TRF26',
     };
-    expect(stringify(t)).not.toMatch(/^212/m);
+    expect(stringify(t, { version: 'TRF26' })).not.toMatch(/^212/m);
   });
 });
 
 describe('stringify round-trip — tiebreak tags (202/212)', () => {
   it('202 tiebreaks survive round-trip', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       tiebreaks: ['BH C1', 'BH', 'SB', 'DE'],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
+    const result = parse(stringify(t, { version: 'TRF26' }));
     expect(result?.tiebreaks).toEqual(['BH C1', 'BH', 'SB', 'DE']);
   });
 
-  it('212 standingsTiebreaks survive round-trip', () => {
-    const t: Tournament = {
+  it('212 standingsTiebreaks do not survive round-trip (TRF-specific)', () => {
+    // standingsTiebreaks is passed as an option to stringify but the parser
+    // no longer stores it on TournamentData, so it cannot round-trip.
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
-      standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
-    expect(result?.standingsTiebreaks).toEqual([
-      'PTS',
-      'BH C1',
-      'BH',
-      'SB',
-      'DE',
-    ]);
+    const result = parse(
+      stringify(t, {
+        standingsTiebreaks: ['PTS', 'BH C1', 'BH', 'SB', 'DE'],
+        version: 'TRF26',
+      }),
+    );
+    // The 212 tag is emitted but parse no longer stores it
+    expect(result).not.toBeNull();
   });
 });
 
-describe('stringify round-trip — 240/260/299', () => {
-  it('240 bye record survives round-trip', () => {
-    const t: Tournament = {
-      byes: [{ playerIds: ['26', '47'], round: 3, type: 'H' }],
-      completedRounds: [],
-      players: [],
-      totalRounds: 3,
-      version: 'TRF26',
-    };
-    const result = parse(stringify(t));
-    expect(result?.byes?.[0]?.playerIds).toEqual(['26', '47']);
-    expect(result?.byes?.[0]?.round).toBe(3);
-  });
-
+describe('stringify round-trip — 260/299', () => {
   it('260 prohibited pairing survives round-trip', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       prohibitedPairings: [
         { firstRound: 1, lastRound: 2, playerIds: ['125', '180', '216'] },
       ],
       totalRounds: 2,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
+    const result = parse(stringify(t, { version: 'TRF26' }));
     expect(result?.prohibitedPairings?.[0]?.playerIds).toEqual([
       '125',
       '180',
@@ -1972,25 +1757,28 @@ describe('stringify round-trip — 240/260/299', () => {
     ]);
   });
 
-  it('299 abnormal points survives round-trip', () => {
-    const t: Tournament = {
-      abnormalPoints: [
-        {
-          gamePoints: 2.5,
-          matchPoints: 2,
-          playerIds: [],
-          round: 0,
-          type: '+',
-        },
-      ],
+  it('299 abnormal points written via options, parsed as adjustments', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 2,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
-    expect(result?.abnormalPoints?.[0]?.matchPoints).toBe(2);
-    expect(result?.abnormalPoints?.[0]?.gamePoints).toBe(2.5);
+    const result = parse(
+      stringify(t, {
+        abnormalPoints: [
+          {
+            gamePoints: 2.5,
+            matchPoints: 2,
+            playerIds: ['1'],
+            round: 1,
+            type: '+',
+          },
+        ],
+        version: 'TRF26',
+      }),
+    );
+    expect(result?.adjustments?.[0]?.points).toBe(2.5);
+    expect(result?.adjustments?.[0]?.playerId).toBe('1');
   });
 });
 
@@ -1998,54 +1786,12 @@ describe('stringify round-trip — 240/260/299', () => {
 // Raw passthrough tags (172, 222, 352, 362)
 // ---------------------------------------------------------------------------
 describe('parse — raw passthrough tags', () => {
-  it('parses tag 172 into startingRankMethod', () => {
-    const input = '012 T\n142 9\n172 FRA FIDON\n';
-    const result = parse(input);
-    expect(result?.startingRankMethod).toBe('FRA FIDON');
-  });
-
-  it('parses tag 222 into encodedTimeControl', () => {
-    const input = '012 T\n142 9\n222 40/6000+30:900+30\n';
-    const result = parse(input);
-    expect(result?.encodedTimeControl).toBe('40/6000+30:900+30');
-  });
-
-  it('parses tag 352 into colourSequence', () => {
-    const input = '012 T\n142 9\n352 WBWBWB\n';
-    const result = parse(input);
-    expect(result?.colourSequence).toBe('WBWBWB');
-  });
-
-  it('parses tag 362 into teamScoringSystem', () => {
-    const input = '012 T\n142 9\n362  TW 2.0    TD 1.0    TL 0.0\n';
-    const result = parse(input);
-    expect(result?.teamScoringSystem).toBe('TW 2.0    TD 1.0    TL 0.0');
-  });
-
-  it('raw tags are undefined when absent', () => {
-    const result = parse('012 T\n142 9\n');
-    expect(result?.startingRankMethod).toBeUndefined();
-    expect(result?.encodedTimeControl).toBeUndefined();
-    expect(result?.colourSequence).toBeUndefined();
-    expect(result?.teamScoringSystem).toBeUndefined();
-  });
-
-  it('raw passthrough tags survive round-trip', () => {
-    const t: Tournament = {
-      colourSequence: 'WBWBWB',
-      completedRounds: [],
-      encodedTimeControl: '5400+30',
-      players: [],
-      startingRankMethod: 'FRA FIDON',
-      teamScoringSystem: 'TW 2.0    TD 1.0    TL 0.0',
-      totalRounds: 9,
-      version: 'TRF26',
-    };
-    const result = parse(stringify(t));
-    expect(result?.startingRankMethod).toBe('FRA FIDON');
-    expect(result?.encodedTimeControl).toBe('5400+30');
-    expect(result?.colourSequence).toBe('WBWBWB');
-    expect(result?.teamScoringSystem).toBe('TW 2.0    TD 1.0    TL 0.0');
+  it('172, 222, 352, 362 are TRF-specific and dropped from parse output', () => {
+    const result = parse(
+      '012 T\n142 9\n172 FRA FIDON\n222 40/6000+30:900+30\n352 WBWBWB\n362 TW 2.0\n',
+    );
+    expect(result).not.toBeNull();
+    // These fields are TRF-specific and not stored on TournamentData
   });
 });
 
@@ -2089,80 +1835,56 @@ describe('parse — tag 162 (scoring system)', () => {
     expect(result?.scoringSystem).toBeUndefined();
   });
 
-  it('detects version as TRF26 when tag 162 is present', () => {
+  it('detects TRF26 tags when tag 162 is present', () => {
     const result = parse('012 T\nXXR 9\n162  W 3.0\n');
-    expect(result?.version).toBe('TRF26');
+    expect(result?.scoringSystem?.win).toBe(3);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Tag 192 — Encoded tournament type
+// Tag 192 — Encoded tournament type (TRF-specific, dropped from parse)
 // ---------------------------------------------------------------------------
 describe('parse — tag 192 (encoded tournament type)', () => {
-  it('parses encoded tournament type', () => {
+  it('tag 192 is TRF-specific and not stored on TournamentData', () => {
     const input = '012 T\n142 9\n192 FIDE_DUTCH_2025\n';
-    const result = parse(input);
-    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
-  });
-
-  it('parses FIDE_BURSTEIN variant', () => {
-    const input = '012 T\n142 9\n192 FIDE_BURSTEIN\n';
-    const result = parse(input);
-    expect(result?.encodedTournamentType).toBe('FIDE_BURSTEIN');
-  });
-
-  it('encodedTournamentType is undefined when tag 192 is absent', () => {
-    const result = parse('012 T\n142 9\n');
-    expect(result?.encodedTournamentType).toBeUndefined();
-  });
-
-  it('detects version as TRF26 when tag 192 is present', () => {
-    const result = parse('012 T\nXXR 9\n192 FIDE_DUTCH_2025\n');
-    expect(result?.version).toBe('TRF26');
-  });
-
-  it('keeps both 092 and 192 as separate fields', () => {
-    const input = '012 T\n142 9\n092 Swiss-System\n192 FIDE_DUTCH_2025\n';
-    const result = parse(input);
-    expect(result?.metadata?.tournamentType).toBe('Swiss-System');
-    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
+    // Just verify no throw and correct base parsing
+    expect(parse(input)?.totalRounds).toBe(9);
   });
 });
 
 describe('stringify round-trip — tag 192 (encoded tournament type)', () => {
-  it('encoded tournament type survives round-trip', () => {
-    const t: Tournament = {
+  it('encoded tournament type written via options emits 192 tag', () => {
+    const t: TournamentData = {
       completedRounds: [],
-      encodedTournamentType: 'FIDE_DUTCH_2025',
       players: [],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
-    expect(result?.encodedTournamentType).toBe('FIDE_DUTCH_2025');
+    const out = stringify(t, {
+      encodedTournamentType: 'FIDE_DUTCH_2025',
+      version: 'TRF26',
+    });
+    expect(out).toContain('192 FIDE_DUTCH_2025');
   });
 
-  it('does not emit tag 192 when encodedTournamentType is undefined', () => {
-    const t: Tournament = {
+  it('does not emit tag 192 when encodedTournamentType is not in options', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    expect(stringify(t)).not.toContain('192');
+    expect(stringify(t, { version: 'TRF26' })).not.toContain('192');
   });
 });
 
 describe('stringify round-trip — tag 162 (scoring system)', () => {
   it('scoring system with non-default win survives round-trip', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       scoringSystem: { win: 3 },
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
+    const result = parse(stringify(t, { version: 'TRF26' }));
     expect(result?.scoringSystem?.win).toBe(3);
   });
 
@@ -2175,82 +1897,49 @@ describe('stringify round-trip — tag 162 (scoring system)', () => {
       unknown: 1,
       win: 3,
     };
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       scoringSystem: scoring,
       totalRounds: 9,
-      version: 'TRF26',
     };
-    const result = parse(stringify(t));
+    const result = parse(stringify(t, { version: 'TRF26' }));
     expect(result?.scoringSystem).toEqual(scoring);
   });
 
   it('does not emit tag 162 when scoringSystem is undefined', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
       totalRounds: 9,
-      version: 'TRF26',
     };
-    expect(stringify(t)).not.toContain('162');
+    expect(stringify(t, { version: 'TRF26' })).not.toContain('162');
   });
 });
 
 // ---------------------------------------------------------------------------
-// XXC — TRFx configuration
+// XXC — TRFx configuration (TRF-specific, dropped from parse)
 // ---------------------------------------------------------------------------
 describe('parse — XXC (TRFx configuration)', () => {
-  it('parses XXC rank flag', () => {
+  it('XXC useRankingId is TRF-specific, not stored on TournamentData', () => {
     const result = parse('012 T\nXXR 9\nXXC rank\n');
-    expect(result?.useRankingId).toBe(true);
-  });
-
-  it('parses XXC white1 into initialColour', () => {
-    const result = parse('012 T\nXXR 9\nXXC white1\n');
-    expect(result?.initialColour).toBe('W');
-  });
-
-  it('parses XXC black1 into initialColour', () => {
-    const result = parse('012 T\nXXR 9\nXXC black1\n');
-    expect(result?.initialColour).toBe('B');
-  });
-
-  it('parses combined XXC rank black1', () => {
-    const result = parse('012 T\nXXR 9\nXXC rank black1\n');
-    expect(result?.useRankingId).toBe(true);
-    expect(result?.initialColour).toBe('B');
-  });
-
-  it('useRankingId is undefined when XXC absent', () => {
-    const result = parse('012 T\nXXR 9\n');
-    expect(result?.useRankingId).toBeUndefined();
+    // useRankingId is no longer on TournamentData
+    expect(result).not.toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// XXZ — Absent players
+// XXZ — Absent players (TRF-specific, dropped until TournamentData has the field)
 // ---------------------------------------------------------------------------
 describe('parse — XXZ (absent players)', () => {
-  it('parses single XXZ line with multiple player IDs', () => {
-    const result = parse('012 T\nXXR 9\nXXZ 3 7 12\n');
-    expect(result?.absentPlayers).toEqual(['3', '7', '12']);
-  });
-
-  it('concatenates multiple XXZ lines', () => {
-    const result = parse('012 T\nXXR 9\nXXZ 3 7\nXXZ 12 15\n');
-    expect(result?.absentPlayers).toEqual(['3', '7', '12', '15']);
-  });
-
-  it('absentPlayers is undefined when XXZ absent', () => {
-    const result = parse('012 T\nXXR 9\n');
-    expect(result?.absentPlayers).toBeUndefined();
-  });
-
   it('does not emit unknown-tag warning for XXZ', () => {
     const onWarning = vi.fn<(warning: ParseWarning) => void>();
     parse('012 T\nXXR 9\nXXZ 3 7 12\n', { onWarning });
     expect(onWarning).not.toHaveBeenCalled();
+  });
+
+  it('parses without error when XXZ is present', () => {
+    expect(parse('012 T\nXXR 9\nXXZ 3 7 12\n')).not.toBeNull();
   });
 });
 
@@ -2381,79 +2070,18 @@ describe('parse — XXS (extended scoring system)', () => {
 });
 
 describe('parse — team round results (802)', () => {
-  it('parses 802 records from grandmommyscup fixture', () => {
+  it('parses 802 records from grandmommyscup fixture into teamRoundResults — dropped', () => {
     const result = parse(fixture('grandmommyscup'));
-    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
-    expect(records802).toBeDefined();
-    expect(records802!.length).toBeGreaterThan(0);
-
-    // Team 1 (IND): 14 rounds, no byes, no forfeits
-    const team1 = records802!.find((r) => r.teamId === '1');
-    expect(team1).toBeDefined();
-    expect(team1!.matchPoints).toBe(15);
-    expect(team1!.gamePoints).toBe(28);
-    expect(team1!.nickname).toBe('IND');
-    expect(team1!.results).toHaveLength(14);
-
-    const r1 = team1!.results[0] as TeamRoundResult802;
-    expect(r1.round).toBe(1);
-    expect(r1.opponentId).toBe('14');
-    expect(r1.color).toBe('b');
-    expect(r1.gamePoints).toBe(2);
-    expect(r1.forfeit).toBeUndefined();
-    expect(r1.type).toBeUndefined();
+    // teamRoundResults is TRF-specific; not stored on TournamentData
+    expect(result).not.toBeNull();
   });
 
-  it('parses 802 bye types (FPB, HPB, ZPB)', () => {
-    const result = parse(fixture('grandmommyscup'));
-    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
-
-    // Team 3 (GEO): round 1 is FPB
-    const team3 = records802!.find((r) => r.teamId === '3');
-    const round1 = team3!.results[0] as TeamRoundResult802;
-    expect(round1.type).toBe('FPB');
-    expect(round1.opponentId).toBeNull();
-    expect(round1.gamePoints).toBe(4);
-    expect(round1.color).toBeUndefined();
-
-    // Team 7 (USA): round 2 is HPB, round 9+ are ZPB
-    const team7 = records802!.find((r) => r.teamId === '7');
-    const round2 = team7!.results[1] as TeamRoundResult802;
-    expect(round2.type).toBe('HPB');
-    expect(round2.opponentId).toBeNull();
-    expect(round2.gamePoints).toBe(2);
-
-    const round9 = team7!.results[8] as TeamRoundResult802;
-    expect(round9.type).toBe('ZPB');
-    expect(round9.gamePoints).toBe(0);
-  });
-
-  it('parses 802 forfeit indicator', () => {
-    const result = parse(fixture('grandmommyscup'));
-    const records802 = result?.teamRoundResults?.filter((r) => r.tag === '802');
-
-    // Team 2 (UKR): round 6 has forfeit
-    const team2 = records802!.find((r) => r.teamId === '2');
-    const round6 = team2!.results[5] as TeamRoundResult802;
-    expect(round6.opponentId).toBe('24');
-    expect(round6.color).toBe('b');
-    expect(round6.gamePoints).toBe(0);
-    expect(round6.forfeit).toBe(true);
-  });
-
-  it('parses 802 from inline input', () => {
+  it('parses 802 from inline input without error', () => {
     const input =
       '### trf26\n012 T\nXXR 3\n' +
       '802   1 AAA      5      8.0   2 w  2.0     3 b  1.5   FPB    4.0 \n';
     const result = parse(input);
-    const rec = result?.teamRoundResults?.[0];
-    expect(rec).toBeDefined();
-    expect(rec!.tag).toBe('802');
-    expect(rec!.teamId).toBe('1');
-    expect(rec!.nickname).toBe('AAA');
-    expect(rec!.matchPoints).toBe(5);
-    expect(rec!.gamePoints).toBe(8);
-    expect(rec!.results).toHaveLength(3);
+    expect(result).not.toBeNull();
   });
 });
 
@@ -2461,10 +2089,13 @@ describe('parse — team round results (802)', () => {
 // Team round results (801)
 // ---------------------------------------------------------------------------
 describe('stringify — team round results (802)', () => {
-  it('emits 802 tag for TRF26', () => {
-    const t: Tournament = {
+  it('emits 802 tag for TRF26 via options', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
+      totalRounds: 3,
+    };
+    const output = stringify(t, {
       teamRoundResults: [
         {
           gamePoints: 8,
@@ -2480,18 +2111,19 @@ describe('stringify — team round results (802)', () => {
           teamId: '1',
         },
       ],
-      totalRounds: 3,
       version: 'TRF26',
-    };
-    const output = stringify(t);
+    });
     expect(output).toMatch(/^802/m);
     expect(output).toContain('802');
   });
 
   it('does not emit 802 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
+      totalRounds: 3,
+    };
+    const output = stringify(t, {
       teamRoundResults: [
         {
           gamePoints: 8,
@@ -2503,17 +2135,17 @@ describe('stringify — team round results (802)', () => {
           teamId: '1',
         },
       ],
-      totalRounds: 3,
-      version: 'TRF16',
-    };
-    const output = stringify(t);
+    });
     expect(output).not.toMatch(/^802/m);
   });
 
   it('emits 802 forfeit indicator', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
+      totalRounds: 1,
+    };
+    const output = stringify(t, {
       teamRoundResults: [
         {
           gamePoints: 0,
@@ -2531,19 +2163,20 @@ describe('stringify — team round results (802)', () => {
           teamId: '1',
         },
       ],
-      totalRounds: 1,
       version: 'TRF26',
-    };
-    const output = stringify(t);
+    });
     expect(output).toMatch(/0\.0f/);
   });
 });
 
 describe('stringify — team round results (801)', () => {
-  it('emits 801 tag for TRF26', () => {
-    const t: Tournament = {
+  it('emits 801 tag for TRF26 via options', () => {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
+      totalRounds: 2,
+    };
+    const output = stringify(t, {
       teamRoundResults: [
         {
           gamePoints: 4,
@@ -2558,17 +2191,18 @@ describe('stringify — team round results (801)', () => {
           teamId: '1',
         },
       ],
-      totalRounds: 2,
       version: 'TRF26',
-    };
-    const output = stringify(t);
+    });
     expect(output).toMatch(/^801/m);
   });
 
   it('does not emit 801 for TRF16', () => {
-    const t: Tournament = {
+    const t: TournamentData = {
       completedRounds: [],
       players: [],
+      totalRounds: 1,
+    };
+    const output = stringify(t, {
       teamRoundResults: [
         {
           gamePoints: 2,
@@ -2580,97 +2214,53 @@ describe('stringify — team round results (801)', () => {
           teamId: '1',
         },
       ],
-      totalRounds: 1,
-      version: 'TRF16',
-    };
-    const output = stringify(t);
+    });
     expect(output).not.toMatch(/^801/m);
   });
 });
 
 describe('parse — team round results (801)', () => {
-  it('parses 801 records from grandmommyscup fixture', () => {
+  it('parses 801 records from grandmommyscup fixture (TRF-specific, dropped)', () => {
     const result = parse(fixture('grandmommyscup'));
-    const records801 = result?.teamRoundResults?.filter((r) => r.tag === '801');
-    expect(records801).toBeDefined();
-    expect(records801!.length).toBeGreaterThan(0);
-
-    // Team 1 (IND): 14 rounds
-    const team1 = records801!.find((r) => r.teamId === '1');
-    expect(team1).toBeDefined();
-    expect(team1!.matchPoints).toBe(15);
-    expect(team1!.gamePoints).toBe(28);
-    expect(team1!.nickname).toBe('IND');
-    expect(team1!.results).toHaveLength(14);
-
-    const r1 = team1!.results[0] as TeamRoundResult801;
-    expect(r1.round).toBe(1);
-    expect(r1.opponentId).toBe('14');
-    expect(r1.raw).toBe('b =0=1 1234');
-    expect(r1.type).toBeUndefined();
+    // teamRoundResults is TRF-specific; not stored on TournamentData
+    expect(result).not.toBeNull();
   });
 
-  it('parses 801 bye types', () => {
-    const result = parse(fixture('grandmommyscup'));
-    const records801 = result?.teamRoundResults?.filter((r) => r.tag === '801');
-
-    // Team 3 (GEO): round 1 is FPB (FFFF)
-    const team3 = records801!.find((r) => r.teamId === '3');
-    const round1 = team3!.results[0] as TeamRoundResult801;
-    expect(round1.type).toBe('FPB');
-    expect(round1.opponentId).toBeNull();
-
-    // Team 7 (USA): round 2 is HPB (HHHH), round 9 is ZPB (ZZZZ)
-    const team7 = records801!.find((r) => r.teamId === '7');
-    const round2 = team7!.results[1] as TeamRoundResult801;
-    expect(round2.type).toBe('HPB');
-    expect(round2.opponentId).toBeNull();
-
-    const round9 = team7!.results[8] as TeamRoundResult801;
-    expect(round9.type).toBe('ZPB');
-    expect(round9.opponentId).toBeNull();
-  });
-
-  it('parses 801 from inline input', () => {
+  it('parses 801 from inline input without error', () => {
     const input =
       '### trf26\n012 T\nXXR 3\n' +
       '801  1 AAA    5   10.0  14 b =0=1 1234  13 w ==== 1234       ZZZZ        \n';
-    const result = parse(input);
-    const rec = result?.teamRoundResults?.[0];
-    expect(rec).toBeDefined();
-    expect(rec!.tag).toBe('801');
-    expect(rec!.teamId).toBe('1');
-    expect(rec!.results).toHaveLength(3);
-
-    const r1 = rec!.results[0] as TeamRoundResult801;
-    expect(r1.opponentId).toBe('14');
-    expect(r1.raw).toBe('b =0=1 1234');
-
-    const r3 = rec!.results[2] as TeamRoundResult801;
-    expect(r3.type).toBe('ZPB');
-    expect(r3.opponentId).toBeNull();
+    expect(parse(input)).not.toBeNull();
   });
 });
 
 describe('round-trip — team round results (802)', () => {
-  it('parse then stringify preserves 802 structured data', () => {
-    const input =
-      '### trf26\n012 T\nXXR 3\n' +
-      '802   1 AAA      5      8.0   2 w  2.0     3 b  1.5   FPB    4.0 \n';
-    const parsed = parse(input);
-    expect(parsed).not.toBeNull();
-    const output = stringify(parsed!);
-    const reparsed = parse(output);
-    expect(reparsed?.teamRoundResults).toHaveLength(1);
-    const rec = reparsed!.teamRoundResults![0]!;
-    expect(rec.tag).toBe('802');
-    expect(rec.teamId).toBe('1');
-    expect(rec.matchPoints).toBe(5);
-    expect(rec.gamePoints).toBe(8);
-    expect(rec.results).toHaveLength(3);
-
-    const r3 = rec.results[2] as TeamRoundResult802;
-    expect(r3.type).toBe('FPB');
-    expect(r3.gamePoints).toBe(4);
+  it('802 data via options emits valid 802 tag', () => {
+    const t: TournamentData = {
+      completedRounds: [],
+      players: [],
+      totalRounds: 3,
+    };
+    const output = stringify(t, {
+      teamRoundResults: [
+        {
+          gamePoints: 8,
+          matchPoints: 5,
+          nickname: 'AAA',
+          results: [
+            { color: 'w', gamePoints: 2, opponentId: '2', round: 1 },
+            { color: 'b', gamePoints: 1.5, opponentId: '3', round: 2 },
+            // eslint-disable-next-line unicorn/no-null
+            { gamePoints: 4, opponentId: null, round: 3, type: 'FPB' },
+          ] as TeamRoundResult802[],
+          tag: '802',
+          teamId: '1',
+        },
+      ],
+      version: 'TRF26',
+    });
+    expect(output).toMatch(/^802/m);
+    // 802 data is TRF-specific and not stored on the parse result
+    expect(parse(output)).not.toBeNull();
   });
 });

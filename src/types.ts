@@ -1,5 +1,3 @@
-import type { TournamentData } from '@echecs/tournament';
-
 type ResultCode =
   | '+'
   | '-'
@@ -33,10 +31,6 @@ interface ParseWarning {
   line: number;
   message: string;
   offset: number;
-}
-
-interface StringifyOptions {
-  onWarning?: (warning: ParseWarning) => void;
 }
 
 interface AbnormalPoints {
@@ -99,10 +93,8 @@ interface TrfBye {
   type: 'F' | 'H' | 'Z';
 }
 
-interface Tournament extends TournamentData {
+interface StringifyOptions {
   abnormalPoints?: AbnormalPoints[];
-  absentPlayers?: string[];
-  byes?: TrfBye[];
   colourSequence?: string;
   encodedTimeControl?: string;
   encodedTournamentType?: string;
@@ -111,14 +103,14 @@ interface Tournament extends TournamentData {
   numberOfPlayers?: number;
   numberOfRatedPlayers?: number;
   numberOfTeams?: number;
+  onWarning?: (warning: ParseWarning) => void;
   outOfOrderLineups?: OutOfOrderLineup[];
-  startingRankMethod?: string;
   standingsTiebreaks?: string[];
   teamPairingAllocatedByes?: TeamPairingAllocatedBye;
   teamRoundResults?: TeamRoundResult[];
   teamScoringSystem?: string;
   useRankingId?: boolean;
-  version: Version;
+  version?: Version;
 }
 
 export type {
@@ -134,7 +126,6 @@ export type {
   TeamRoundResult,
   TeamRoundResult801,
   TeamRoundResult802,
-  Tournament,
   TrfBye,
   Version,
 };

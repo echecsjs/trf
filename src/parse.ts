@@ -14,7 +14,6 @@ import {
 } from './columns.js';
 
 import type {
-  AbnormalPoints,
   NationalRating,
   ParseError,
   ParseOptions,
@@ -24,13 +23,13 @@ import type {
   ResultCode,
   ScoringSystem,
   Team,
-  TeamRoundResult801,
-  TeamRoundResult802,
-  Tournament,
-  TrfBye,
-  Version,
 } from './types.js';
-import type { Bye, CompletedRound, Game } from '@echecs/tournament';
+import type {
+  Bye,
+  CompletedRound,
+  Game,
+  TournamentData,
+} from '@echecs/tournament';
 
 const KNOWN_HEADER_TAGS = new Set([
   '###',
@@ -70,31 +69,6 @@ const KNOWN_HEADER_TAGS = new Set([
   'XXR',
   'XXS',
   'XXZ',
-]);
-
-const TRF26_ONLY_TAGS = new Set([
-  '###',
-  '142',
-  '152',
-  '162',
-  '172',
-  '182',
-  '192',
-  '202',
-  '212',
-  '222',
-  '240',
-  '250',
-  '260',
-  '299',
-  '300',
-  '310',
-  '320',
-  '330',
-  '352',
-  '362',
-  '801',
-  '802',
 ]);
 
 const VALID_RESULT_CODES = new Set<ResultCode>([
@@ -319,20 +293,6 @@ function parsePlayerLine(
   if (title !== undefined) player.title = title;
 
   return player;
-}
-
-function detectVersion(lines: string[]): Version {
-  for (const line of lines) {
-    const tag = line.slice(0, 3);
-    if (TRF26_ONLY_TAGS.has(tag)) {
-      return 'TRF26';
-    }
-    // NRS record: exactly 3 uppercase letters not already known
-    if (/^[A-Z]{3}$/.test(tag) && !KNOWN_HEADER_TAGS.has(tag)) {
-      return 'TRF26';
-    }
-  }
-  return 'TRF16';
 }
 
 // ---------------------------------------------------------------------------
@@ -749,7 +709,7 @@ function buildCompletedRounds(
 export default function parse(
   input: string,
   options?: ParseOptions,
-): Tournament | null {
+): TournamentData | null {
   const content = input.replace(/^\uFEFF/, '').trim();
 
   if (content.length === 0) {
@@ -759,13 +719,11 @@ export default function parse(
   }
 
   const lines = content.split('\n');
-  const version = detectVersion(lines);
 
-  const tournament: Tournament = {
+  const tournament: TournamentData = {
     completedRounds: [],
     players: [],
     totalRounds: 0,
-    version,
   };
 
   // Track the byte offset of the start of each line within `content`.
@@ -815,24 +773,15 @@ export default function parse(
         break;
       }
       case '062': {
-        const n062 = Number(line.slice(4).trim());
-        if (n062 > 0) {
-          tournament.numberOfPlayers = n062;
-        }
+        // numberOfPlayers is TRF-specific; not stored on TournamentData
         break;
       }
       case '072': {
-        const n072 = Number(line.slice(4).trim());
-        if (n072 > 0) {
-          tournament.numberOfRatedPlayers = n072;
-        }
+        // numberOfRatedPlayers is TRF-specific; not stored on TournamentData
         break;
       }
       case '082': {
-        const n082 = Number(line.slice(4).trim());
-        if (n082 > 0) {
-          tournament.numberOfTeams = n082;
-        }
+        // numberOfTeams is TRF-specific; not stored on TournamentData
         break;
       }
       case '092': {
@@ -885,10 +834,7 @@ export default function parse(
         break;
       }
       case '152': {
-        const c = line.slice(4).trim();
-        if (c === 'W' || c === 'B') {
-          tournament.initialColour = c;
-        }
+        // initialColour is TRF-specific; not stored on TournamentData
         break;
       }
       case '162': {
@@ -937,10 +883,7 @@ export default function parse(
         break;
       }
       case '172': {
-        const srm = line.slice(4).trim();
-        if (srm.length > 0) {
-          tournament.startingRankMethod = srm;
-        }
+        // startingRankMethod is not yet on TournamentMetadata; dropping for now
         break;
       }
       case '182': {
@@ -952,10 +895,7 @@ export default function parse(
         break;
       }
       case '192': {
-        const ett = line.slice(4).trim();
-        if (ett.length > 0) {
-          tournament.encodedTournamentType = ett;
-        }
+        // encodedTournamentType is TRF-specific; not stored on TournamentData
         break;
       }
       case '202': {
@@ -966,56 +906,23 @@ export default function parse(
         break;
       }
       case '212': {
-        const value212 = line.slice(4).trim();
-        if (value212.length > 0) {
-          tournament.standingsTiebreaks = value212
-            .split(',')
-            .map((s) => s.trim());
-        }
+        // standingsTiebreaks is TRF-specific; not stored on TournamentData
         break;
       }
       case '222': {
-        const etc = line.slice(4).trim();
-        if (etc.length > 0) {
-          tournament.encodedTimeControl = etc;
-        }
+        // encodedTimeControl is TRF-specific; not stored on TournamentData
         break;
       }
       case '352': {
-        const cs = line.slice(4).trim();
-        if (cs.length > 0) {
-          tournament.colourSequence = cs;
-        }
+        // colourSequence is TRF-specific; not stored on TournamentData
         break;
       }
       case '362': {
-        const tss = line.slice(4).trim();
-        if (tss.length > 0) {
-          tournament.teamScoringSystem = tss;
-        }
+        // teamScoringSystem is TRF-specific; not stored on TournamentData
         break;
       }
       case 'XXC': {
-        for (const token of line.slice(4).trim().split(/\s+/)) {
-          switch (token) {
-            case 'rank': {
-              tournament.useRankingId = true;
-
-              break;
-            }
-            case 'white1': {
-              tournament.initialColour = 'W';
-
-              break;
-            }
-            case 'black1': {
-              tournament.initialColour = 'B';
-
-              break;
-            }
-            // No default
-          }
-        }
+        // useRankingId and initialColour are TRF-specific; not stored on TournamentData
         break;
       }
       case 'XXA': {
@@ -1140,17 +1047,7 @@ export default function parse(
         break;
       }
       case 'XXZ': {
-        const ids = line
-          .slice(4)
-          .trim()
-          .split(/\s+/)
-          .map(Number)
-          .filter((n) => n > 0)
-          .map(String);
-        if (ids.length > 0) {
-          tournament.absentPlayers ??= [];
-          tournament.absentPlayers.push(...ids);
-        }
+        // withdrawnPlayers is not yet on TournamentData; dropping for now
         break;
       }
       case '013': {
@@ -1158,20 +1055,7 @@ export default function parse(
         break;
       }
       case '240': {
-        const typeRaw = line.slice(4, 5).trim();
-        if (typeRaw === 'F' || typeRaw === 'H' || typeRaw === 'Z') {
-          const round = Number(line.slice(6, 9).trim()) || 0;
-          const playerIds: string[] = [];
-          for (let pos = 10; pos < line.length; pos += 5) {
-            const id = Number(line.slice(pos, pos + 4).trim());
-            if (id > 0) {
-              playerIds.push(String(id));
-            }
-          }
-          const trfBye: TrfBye = { playerIds, round, type: typeRaw };
-          tournament.byes ??= [];
-          tournament.byes.push(trfBye);
-        }
+        // byes (tag 240) are TRF-specific; not stored on TournamentData
         break;
       }
       case '250': {
@@ -1223,10 +1107,7 @@ export default function parse(
           'W',
           'Z',
         ]);
-        const type299 = validTypes299.has(typeRaw299)
-          ? (typeRaw299 as AbnormalPoints['type'])
-          : ' ';
-        const matchPoints299 = Number(line.slice(7, 11).trim()) || 0;
+        const type299 = validTypes299.has(typeRaw299) ? typeRaw299 : ' ';
         const gamePoints299 = Number(line.slice(13, 17).trim()) || 0;
         const round299 = Number(line.slice(19, 22).trim()) || 0;
         const playerIds299: string[] = [];
@@ -1236,70 +1117,27 @@ export default function parse(
             playerIds299.push(String(id));
           }
         }
-        tournament.abnormalPoints ??= [];
-        tournament.abnormalPoints.push({
-          gamePoints: gamePoints299,
-          matchPoints: matchPoints299,
-          playerIds: playerIds299,
-          round: round299,
-          type: type299,
-        });
+        tournament.adjustments ??= [];
+        for (const playerId of playerIds299) {
+          tournament.adjustments.push({
+            playerId,
+            points: gamePoints299,
+            reason: `abnormal points (type: ${type299})`,
+            round: round299,
+          });
+        }
         break;
       }
       case '300': {
-        const round300 = Number(line.slice(4, 7).trim()) || 0;
-        const teamId300 = Number(line.slice(8, 11).trim()) || 0;
-        const opponentTeamId300 = Number(line.slice(12, 15).trim()) || 0;
-        const playerIds300: (string | null)[] = [];
-        for (let pos = 16; pos < line.length; pos += 5) {
-          const raw300 = line.slice(pos, pos + 4).trim();
-          const id300 = Number(raw300);
-          playerIds300.push(
-            raw300 === '' || id300 === 0 ? null : String(id300), // eslint-disable-line unicorn/no-null
-          );
-        }
-        tournament.outOfOrderLineups ??= [];
-        tournament.outOfOrderLineups.push({
-          opponentTeamId: String(opponentTeamId300),
-          playerIds: playerIds300,
-          round: round300,
-          teamId: String(teamId300),
-        });
+        // outOfOrderLineups is TRF-specific; not stored on TournamentData
         break;
       }
       case '320': {
-        const matchPoints320 = Number(line.slice(4, 8).trim()) || 0;
-        const gamePoints320 = Number(line.slice(9, 13).trim()) || 0;
-        const teamIdPerRound320: (string | null)[] = [];
-        for (let pos = 14; pos < line.length; pos += 4) {
-          const raw320 = line.slice(pos, pos + 3).trim();
-          if (raw320 === '') {
-            break;
-          }
-          const id320 = Number(raw320);
-          teamIdPerRound320.push(id320 === 0 ? null : String(id320)); // eslint-disable-line unicorn/no-null
-        }
-        tournament.teamPairingAllocatedByes = {
-          gamePoints: gamePoints320,
-          matchPoints: matchPoints320,
-          teamIdPerRound: teamIdPerRound320,
-        };
+        // teamPairingAllocatedByes is TRF-specific; not stored on TournamentData
         break;
       }
       case '330': {
-        const typeRaw330 = line.slice(4, 6);
-        if (typeRaw330 === '+-' || typeRaw330 === '-+' || typeRaw330 === '--') {
-          const round330 = Number(line.slice(7, 10).trim()) || 0;
-          const whiteTeamId330 = Number(line.slice(11, 14).trim()) || 0;
-          const blackTeamId330 = Number(line.slice(15, 18).trim()) || 0;
-          tournament.forfeitedMatches ??= [];
-          tournament.forfeitedMatches.push({
-            blackTeamId: String(blackTeamId330),
-            round: round330,
-            type: typeRaw330,
-            whiteTeamId: String(whiteTeamId330),
-          });
-        }
+        // forfeitedMatches is TRF-specific; not stored on TournamentData
         break;
       }
       case '310': {
@@ -1334,124 +1172,11 @@ export default function parse(
         break;
       }
       case '801': {
-        const BYE_MAP_801: Record<string, 'FPB' | 'HPB' | 'PAB' | 'ZPB'> = {
-          FFFF: 'FPB',
-          HHHH: 'HPB',
-          PPPP: 'PAB',
-          ZZZZ: 'ZPB',
-        };
-
-        const teamId801 = Number(line.slice(3, 7).trim()) || 0;
-        if (teamId801 === 0) break;
-
-        const nickname801 = line.slice(7, 12).trim() || undefined;
-        const matchPoints801 = Number(line.slice(12, 16).trim()) || 0;
-        const gamePoints801 = Number(line.slice(16, 22).trim()) || 0;
-
-        const results801: TeamRoundResult801[] = [];
-        let round801 = 1;
-        for (let pos = 22; pos < line.length; pos += 16) {
-          const block = line.slice(pos, pos + 16);
-          if (block.trim().length === 0) break;
-
-          // Check for bye marker (FFFF, HHHH, ZZZZ anywhere in block)
-          const blockTrimmed = block.trim();
-          const byeType = BYE_MAP_801[blockTrimmed];
-          if (byeType === undefined) {
-            // Normal round: opponent in first ~4 chars, rest is raw
-            const oppRaw = block.slice(0, 5).trim();
-            const opponentId =
-              oppRaw === '' || Number(oppRaw) === 0
-                ? null // eslint-disable-line unicorn/no-null
-                : String(Number(oppRaw));
-            const raw = block.slice(5).trimEnd();
-
-            results801.push({
-              opponentId,
-              raw,
-              round: round801,
-            });
-          } else {
-            results801.push({
-              opponentId: null, // eslint-disable-line unicorn/no-null
-              raw: blockTrimmed,
-              round: round801,
-              type: byeType,
-            });
-          }
-
-          round801 += 1;
-        }
-
-        tournament.teamRoundResults ??= [];
-        tournament.teamRoundResults.push({
-          gamePoints: gamePoints801,
-          matchPoints: matchPoints801,
-          nickname: nickname801,
-          results: results801,
-          tag: '801',
-          teamId: String(teamId801),
-        });
-
+        // teamRoundResults (801) is TRF-specific; not stored on TournamentData
         break;
       }
       case '802': {
-        const BYE_TYPES_802 = new Set(['FPB', 'HPB', 'PAB', 'ZPB']);
-        const teamId802 = Number(line.slice(4, 7).trim()) || 0;
-        if (teamId802 === 0) break;
-
-        const nickname802 = line.slice(8, 13).trim() || undefined;
-        const matchPoints802 = Number(line.slice(14, 20).trim()) || 0;
-        const gamePoints802 = Number(line.slice(21, 27).trim()) || 0;
-
-        const results802: TeamRoundResult802[] = [];
-        let round802 = 1;
-        for (let pos = 28; pos < line.length; pos += 13) {
-          const block = line.slice(pos, pos + 13);
-          if (block.trim().length === 0) break;
-
-          const oppRaw = block.slice(0, 3).trim();
-          const isBye = BYE_TYPES_802.has(oppRaw);
-
-          const colorRaw = block[4]?.trim() ?? '';
-          const gpRaw = block.slice(6, 10).trim();
-          const forfeitRaw = block[10]?.trim() ?? '';
-
-          const entry: TeamRoundResult802 = {
-            gamePoints: Number(gpRaw) || 0,
-
-            opponentId: isBye
-              ? null // eslint-disable-line unicorn/no-null
-              : oppRaw === '' || Number(oppRaw) === 0
-                ? null // eslint-disable-line unicorn/no-null
-                : String(Number(oppRaw)),
-            round: round802,
-          };
-
-          if (isBye) {
-            entry.type = oppRaw as 'FPB' | 'HPB' | 'PAB' | 'ZPB';
-          }
-          if (colorRaw === 'w' || colorRaw === 'b') {
-            entry.color = colorRaw;
-          }
-          if (forfeitRaw === 'f' || forfeitRaw === 'F') {
-            entry.forfeit = true;
-          }
-
-          results802.push(entry);
-          round802 += 1;
-        }
-
-        tournament.teamRoundResults ??= [];
-        tournament.teamRoundResults.push({
-          gamePoints: gamePoints802,
-          matchPoints: matchPoints802,
-          nickname: nickname802,
-          results: results802,
-          tag: '802',
-          teamId: String(teamId802),
-        });
-
+        // teamRoundResults (802) is TRF-specific; not stored on TournamentData
         break;
       }
       default: {

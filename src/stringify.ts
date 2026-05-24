@@ -18,9 +18,9 @@ import type {
   StringifyOptions,
   TeamRoundResult801,
   TeamRoundResult802,
-  Tournament,
+  Version,
 } from './types.js';
-import type { Game } from '@echecs/tournament';
+import type { Game, TournamentData } from '@echecs/tournament';
 
 // Per-player round result reconstructed from CompletedRound[]
 interface ReconstructedResult {
@@ -46,11 +46,11 @@ function writeAt(buf: string[], col: number, value: string): void {
  */
 function reconstructPlayerResults(
   player: Player,
-  tournament: Tournament,
+  data: TournamentData,
 ): ReconstructedResult[] {
   const results: ReconstructedResult[] = [];
 
-  for (const [roundIndex, round] of tournament.completedRounds.entries()) {
+  for (const [roundIndex, round] of data.completedRounds.entries()) {
     const roundNumber = roundIndex + 1;
 
     // Check for bye first
@@ -147,7 +147,8 @@ function reconstructPlayerResults(
 function stringifyPlayerLine(
   player: Player,
   playerIndex: number,
-  tournament: Tournament,
+  data: TournamentData,
+  version: Version,
   onWarning?: StringifyOptions['onWarning'],
 ): string {
   function warnIfTruncated(
@@ -228,7 +229,11 @@ function stringifyPlayerLine(
   writeAt(buf, COL_RANK, pad(String(player.rank), 5, 'right'));
 
   // Round results — reconstruct from completedRounds
-  const results = reconstructPlayerResults(player, tournament);
+  const results = reconstructPlayerResults(player, data);
+
+  // version param is reserved for future use (e.g. TRF26-specific result codes)
+  void version;
+
   if (results.length > 0) {
     for (const result of results) {
       const slot =
@@ -255,14 +260,15 @@ function stringifyPlayerLine(
 }
 
 export default function stringify(
-  tournament: Tournament,
+  data: TournamentData,
   options?: StringifyOptions,
 ): string {
   const lines: string[] = [];
 
-  const meta = tournament.metadata;
+  const version: Version = options?.version ?? 'TRF16';
+  const meta = data.metadata;
 
-  if (tournament.version === 'TRF26') {
+  if (version === 'TRF26') {
     for (const comment of meta?.comments ?? []) {
       lines.push(`### ${comment}`);
     }
@@ -283,15 +289,24 @@ export default function stringify(
   if (meta?.endDate !== undefined) {
     lines.push(`052 ${meta.endDate}`);
   }
-  if (tournament.numberOfPlayers !== undefined) {
-    lines.push(`062 ${tournament.numberOfPlayers}`);
+
+  const numberOfPlayers = options?.numberOfPlayers ?? data.players.length;
+  if (numberOfPlayers > 0) {
+    lines.push(`062 ${numberOfPlayers}`);
   }
-  if (tournament.numberOfRatedPlayers !== undefined) {
-    lines.push(`072 ${tournament.numberOfRatedPlayers}`);
+
+  const numberOfRatedPlayers =
+    options?.numberOfRatedPlayers ??
+    data.players.filter((p) => p.rating !== undefined).length;
+  if (numberOfRatedPlayers > 0) {
+    lines.push(`072 ${numberOfRatedPlayers}`);
   }
-  if (tournament.numberOfTeams !== undefined) {
-    lines.push(`082 ${tournament.numberOfTeams}`);
+
+  const numberOfTeams = options?.numberOfTeams ?? (data.teams ?? []).length;
+  if (numberOfTeams > 0) {
+    lines.push(`082 ${numberOfTeams}`);
   }
+
   if (meta?.tournamentType !== undefined) {
     lines.push(`092 ${meta.tournamentType}`);
   }
@@ -322,18 +337,13 @@ export default function stringify(
     }
     lines.push(buf.join('').trimEnd());
   }
-  if (tournament.totalRounds > 0) {
-    lines.push(`XXR ${tournament.totalRounds}`);
+  if (data.totalRounds > 0) {
+    lines.push(`XXR ${data.totalRounds}`);
   }
 
-  if (
-    tournament.absentPlayers !== undefined &&
-    tournament.absentPlayers.length > 0
-  ) {
-    lines.push(`XXZ ${tournament.absentPlayers.join(' ')}`);
-  }
+  // withdrawnPlayers not yet on TournamentData; XXZ not emitted
 
-  for (const pa of tournament.playerAccelerations ?? []) {
+  for (const pa of data.playerAccelerations ?? []) {
     const pointsPart = pa.points
       .map((p) => pad(p.toFixed(1), 4, 'right'))
       .join(' ');
@@ -342,14 +352,11 @@ export default function stringify(
 
   {
     const xxcParts: string[] = [];
-    if (tournament.useRankingId === true) {
+    if (options?.useRankingId === true) {
       xxcParts.push('rank');
     }
-    if (
-      tournament.version !== 'TRF26' &&
-      tournament.initialColour !== undefined
-    ) {
-      xxcParts.push(tournament.initialColour === 'W' ? 'white1' : 'black1');
+    if (version !== 'TRF26' && options?.initialColour !== undefined) {
+      xxcParts.push(options.initialColour === 'W' ? 'white1' : 'black1');
     }
     if (xxcParts.length > 0) {
       lines.push(`XXC ${xxcParts.join(' ')}`);
@@ -357,7 +364,7 @@ export default function stringify(
   }
 
   {
-    const s = tournament.scoringSystem;
+    const s = data.scoringSystem;
     if (s !== undefined) {
       const xxsColourCodes: [string, number | undefined][] = [
         ['WW', s.whiteWin],
@@ -388,15 +395,15 @@ export default function stringify(
     }
   }
 
-  if (tournament.version === 'TRF26') {
-    if (tournament.totalRounds > 0) {
-      lines.push(`142 ${tournament.totalRounds}`);
+  if (version === 'TRF26') {
+    if (data.totalRounds > 0) {
+      lines.push(`142 ${data.totalRounds}`);
     }
-    if (tournament.initialColour !== undefined) {
-      lines.push(`152 ${tournament.initialColour}`);
+    if (options?.initialColour !== undefined) {
+      lines.push(`152 ${options.initialColour}`);
     }
-    if (tournament.scoringSystem !== undefined) {
-      const s = tournament.scoringSystem;
+    if (data.scoringSystem !== undefined) {
+      const s = data.scoringSystem;
       const codes: [string, number | undefined][] = [
         ['W', s.win],
         ['D', s.draw],
@@ -412,44 +419,42 @@ export default function stringify(
         lines.push(`162  ${entries.join('    ')}`);
       }
     }
-    if (tournament.startingRankMethod !== undefined) {
-      lines.push(`172 ${tournament.startingRankMethod}`);
-    }
+    // startingRankMethod not yet on TournamentMetadata; 172 not emitted
     if (meta?.pairingController !== undefined) {
       lines.push(`182 ${meta.pairingController}`);
     }
-    if (tournament.encodedTournamentType !== undefined) {
-      lines.push(`192 ${tournament.encodedTournamentType}`);
+    if (options?.encodedTournamentType !== undefined) {
+      lines.push(`192 ${options.encodedTournamentType}`);
     }
-    if (tournament.tiebreaks !== undefined && tournament.tiebreaks.length > 0) {
-      lines.push(`202 ${tournament.tiebreaks.join(',')}`);
+    if (data.tiebreaks !== undefined && data.tiebreaks.length > 0) {
+      lines.push(`202 ${data.tiebreaks.join(',')}`);
     }
     if (
-      tournament.standingsTiebreaks !== undefined &&
-      tournament.standingsTiebreaks.length > 0
+      options?.standingsTiebreaks !== undefined &&
+      options.standingsTiebreaks.length > 0
     ) {
-      lines.push(`212 ${tournament.standingsTiebreaks.join(',')}`);
+      lines.push(`212 ${options.standingsTiebreaks.join(',')}`);
     }
-    if (tournament.encodedTimeControl !== undefined) {
-      lines.push(`222 ${tournament.encodedTimeControl}`);
+    if (options?.encodedTimeControl !== undefined) {
+      lines.push(`222 ${options.encodedTimeControl}`);
     }
-    if (tournament.colourSequence !== undefined) {
-      lines.push(`352 ${tournament.colourSequence}`);
+    if (options?.colourSequence !== undefined) {
+      lines.push(`352 ${options.colourSequence}`);
     }
-    if (tournament.teamScoringSystem !== undefined) {
-      lines.push(`362 ${tournament.teamScoringSystem}`);
+    if (options?.teamScoringSystem !== undefined) {
+      lines.push(`362 ${options.teamScoringSystem}`);
     }
   }
 
-  for (const [index, player] of tournament.players.entries()) {
+  for (const [index, player] of data.players.entries()) {
     lines.push(
-      stringifyPlayerLine(player, index, tournament, options?.onWarning),
+      stringifyPlayerLine(player, index, data, version, options?.onWarning),
     );
   }
 
   // NRS records — emitted after all 001 records, TRF26 only
-  if (tournament.version === 'TRF26') {
-    for (const player of tournament.players) {
+  if (version === 'TRF26') {
+    for (const player of data.players) {
       for (const nrs of player.nationalRatings ?? []) {
         const buf: string[] = Array.from({ length: COL_RANK + 5 }, () => ' ');
         // Federation code as record type (3 chars)
@@ -497,21 +502,13 @@ export default function stringify(
     }
   }
 
-  // 240 — Bye records (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const bye of tournament.byes ?? []) {
-      const playerPart = bye.playerIds
-        .map((id) => String(Number(id)).padStart(4))
-        .join(' ');
-      lines.push(
-        `240 ${bye.type} ${String(bye.round).padStart(3)} ${playerPart}`,
-      );
-    }
-  }
+  // 240 — Bye records (TRF26 only) — derived from completedRounds byes
+  // (tag 240 byes are not on TournamentData; omitted in stringify unless
+  //  the caller provides them via options in a future extension)
 
   // 250 — Accelerated rounds (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const accumulator of tournament.acceleratedRounds ?? []) {
+  if (version === 'TRF26') {
+    for (const accumulator of data.acceleratedRounds ?? []) {
       lines.push(
         `250 ${accumulator.matchPoints.toFixed(1).padStart(4)} ${accumulator.gamePoints.toFixed(1).padStart(4)} ${String(accumulator.firstRound).padStart(3)} ${String(accumulator.lastRound).padStart(3)} ${String(Number(accumulator.firstPlayerId)).padStart(4)} ${String(Number(accumulator.lastPlayerId)).padStart(4)}`,
       );
@@ -519,7 +516,7 @@ export default function stringify(
   }
 
   // XXP — Forbidden pairs (all versions; round sentinel 0/0)
-  for (const pp of tournament.prohibitedPairings ?? []) {
+  for (const pp of data.prohibitedPairings ?? []) {
     if (pp.firstRound === 0 && pp.lastRound === 0) {
       const idPart = pp.playerIds.join(' ');
       lines.push(`XXP ${idPart}`);
@@ -527,8 +524,8 @@ export default function stringify(
   }
 
   // 260 — Prohibited pairings (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const pp of tournament.prohibitedPairings ?? []) {
+  if (version === 'TRF26') {
+    for (const pp of data.prohibitedPairings ?? []) {
       if (pp.firstRound !== 0 || pp.lastRound !== 0) {
         const idPart = pp.playerIds
           .map((id) => String(Number(id)).padStart(4))
@@ -540,9 +537,9 @@ export default function stringify(
     }
   }
 
-  // 299 — Abnormal points (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const ab of tournament.abnormalPoints ?? []) {
+  // 299 — Abnormal points (TRF26 only) — from options
+  if (version === 'TRF26') {
+    for (const ab of options?.abnormalPoints ?? []) {
       const roundPart = ab.round === 0 ? '   ' : String(ab.round).padStart(3);
       const idPart =
         ab.playerIds.length === 0
@@ -555,9 +552,9 @@ export default function stringify(
     }
   }
 
-  // 300 — Out-of-order lineups (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const ool of tournament.outOfOrderLineups ?? []) {
+  // 300 — Out-of-order lineups (TRF26 only) — from options
+  if (version === 'TRF26') {
+    for (const ool of options?.outOfOrderLineups ?? []) {
       const idPart = ool.playerIds
         .map((id) => (id === null ? '0000' : String(Number(id)).padStart(4)))
         .join(' ');
@@ -567,12 +564,9 @@ export default function stringify(
     }
   }
 
-  // 320 — Team PAB (TRF26 only)
-  if (
-    tournament.version === 'TRF26' &&
-    tournament.teamPairingAllocatedByes !== undefined
-  ) {
-    const pab = tournament.teamPairingAllocatedByes;
+  // 320 — Team PAB (TRF26 only) — from options
+  if (version === 'TRF26' && options?.teamPairingAllocatedByes !== undefined) {
+    const pab = options.teamPairingAllocatedByes;
     const roundParts = pab.teamIdPerRound
       .map((id) => (id === null ? '000' : String(Number(id)).padStart(3)))
       .join(' ');
@@ -581,9 +575,9 @@ export default function stringify(
     );
   }
 
-  // 330 — Forfeited matches (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const fm of tournament.forfeitedMatches ?? []) {
+  // 330 — Forfeited matches (TRF26 only) — from options
+  if (version === 'TRF26') {
+    for (const fm of options?.forfeitedMatches ?? []) {
       lines.push(
         `330 ${fm.type} ${String(Number(fm.round)).padStart(3)} ${String(Number(fm.whiteTeamId)).padStart(3)} ${String(Number(fm.blackTeamId)).padStart(3)}`,
       );
@@ -591,8 +585,8 @@ export default function stringify(
   }
 
   // Team records (310) — TRF26 only
-  if (tournament.version === 'TRF26') {
-    for (const team of tournament.teams ?? []) {
+  if (version === 'TRF26') {
+    for (const team of data.teams ?? []) {
       const buf: string[] = Array.from({ length: 72 }, () => ' ');
       buf[0] = '3';
       buf[1] = '1';
@@ -616,9 +610,9 @@ export default function stringify(
     }
   }
 
-  // 801/802 — Team round-by-round results (TRF26 only)
-  if (tournament.version === 'TRF26') {
-    for (const record of tournament.teamRoundResults ?? []) {
+  // 801/802 — Team round-by-round results (TRF26 only) — from options
+  if (version === 'TRF26') {
+    for (const record of options?.teamRoundResults ?? []) {
       if (record.tag === '801') {
         const buf801: string[] = Array.from({ length: 22 }, () => ' ');
         writeAt(buf801, 0, '801');

@@ -3,6 +3,7 @@ export { default as stringify } from './stringify.js';
 
 export type {
   AbnormalPoints,
+  Bye,
   CompletedRound,
   ForfeitedMatch,
   Game,
@@ -22,7 +23,6 @@ export type {
   TeamRoundResult,
   TeamRoundResult801,
   TeamRoundResult802,
-  Tournament,
   TournamentData,
   TournamentMetadata,
   TrfBye,

@@ -9,15 +9,14 @@ import type {
   Player,
   ScoringSystem,
   StringifyOptions,
-  Tournament,
+  TournamentData,
 } from '../types.js';
 
-function minimal(overrides: Partial<Tournament> = {}): Tournament {
+function minimal(overrides: Partial<TournamentData> = {}): TournamentData {
   return {
     completedRounds: [],
     players: [],
     totalRounds: 0,
-    version: 'TRF16',
     ...overrides,
   };
 }
@@ -79,23 +78,17 @@ describe('stringify — header tags', () => {
 });
 
 describe('stringify — XXC (TRFx configuration)', () => {
-  it('emits XXC rank for TRF16 when useRankingId is true', () => {
-    expect(stringify(minimal({ useRankingId: true }))).toContain('XXC rank');
+  it('emits XXC rank for TRF16 when useRankingId is true in options', () => {
+    expect(stringify(minimal(), { useRankingId: true })).toContain('XXC rank');
   });
 
-  it('does not emit XXC when useRankingId is undefined', () => {
+  it('does not emit XXC when useRankingId is not in options', () => {
     expect(stringify(minimal())).not.toContain('XXC');
   });
 });
 
 describe('stringify — XXZ (absent players)', () => {
-  it('emits XXZ line for absentPlayers', () => {
-    expect(stringify(minimal({ absentPlayers: ['3', '7', '12'] }))).toContain(
-      'XXZ 3 7 12',
-    );
-  });
-
-  it('does not emit XXZ when absentPlayers is undefined', () => {
+  it('does not emit XXZ (withdrawnPlayers not yet on TournamentData)', () => {
     expect(stringify(minimal())).not.toContain('XXZ');
   });
 });
@@ -410,18 +403,16 @@ function fixture(name: string): string {
 }
 
 describe('stringify — tag 192 (encoded tournament type)', () => {
-  it('emits 192 line for encodedTournamentType', () => {
-    const output = stringify(
-      minimal({
-        encodedTournamentType: 'FIDE_DUTCH_2025',
-        version: 'TRF26',
-      }),
-    );
+  it('emits 192 line for encodedTournamentType in options', () => {
+    const output = stringify(minimal(), {
+      encodedTournamentType: 'FIDE_DUTCH_2025',
+      version: 'TRF26',
+    });
     expect(output).toContain('192 FIDE_DUTCH_2025');
   });
 
-  it('omits 192 line when encodedTournamentType is undefined', () => {
-    const output = stringify(minimal({ version: 'TRF26' }));
+  it('omits 192 line when encodedTournamentType is not in options', () => {
+    const output = stringify(minimal(), { version: 'TRF26' });
     expect(output).not.toContain('192');
   });
 });
@@ -431,8 +422,8 @@ describe('stringify — tag 162 (scoring system)', () => {
     const output = stringify(
       minimal({
         scoringSystem: { win: 3 },
-        version: 'TRF26',
       }),
+      { version: 'TRF26' },
     );
     expect(output).toContain('162');
     expect(output).toMatch(/162\s+W\s+3\.0/);
@@ -447,9 +438,9 @@ describe('stringify — tag 162 (scoring system)', () => {
       unknown: 1,
       win: 3,
     };
-    const output = stringify(
-      minimal({ scoringSystem: scoring, version: 'TRF26' }),
-    );
+    const output = stringify(minimal({ scoringSystem: scoring }), {
+      version: 'TRF26',
+    });
     expect(output).toMatch(/162/);
     // All codes should appear
     expect(output).toMatch(/W\s+3\.0/);
@@ -461,12 +452,14 @@ describe('stringify — tag 162 (scoring system)', () => {
   });
 
   it('omits 162 line when scoringSystem is undefined', () => {
-    const output = stringify(minimal({ version: 'TRF26' }));
+    const output = stringify(minimal(), { version: 'TRF26' });
     expect(output).not.toContain('162');
   });
 
   it('omits 162 line when scoringSystem is empty object', () => {
-    const output = stringify(minimal({ scoringSystem: {}, version: 'TRF26' }));
+    const output = stringify(minimal({ scoringSystem: {} }), {
+      version: 'TRF26',
+    });
     expect(output).not.toContain('162');
   });
 });
@@ -485,9 +478,9 @@ describe('stringify — XXS (extended scoring system)', () => {
   });
 
   it('does not emit XXS when only tag-162 fields are set', () => {
-    const output = stringify(
-      minimal({ scoringSystem: { win: 3 }, version: 'TRF26' }),
-    );
+    const output = stringify(minimal({ scoringSystem: { win: 3 } }), {
+      version: 'TRF26',
+    });
     expect(output).not.toContain('XXS');
   });
 });
@@ -532,7 +525,11 @@ describe('stringify — roundtrip', () => {
   for (const name of ROUNDTRIP_FIXTURES) {
     it(`parse → stringify → parse is stable for ${name}`, () => {
       const t1 = parse(fixture(name))!;
-      const t2 = parse(stringify(t1))!;
+      // Detect version for fixture to pass to stringify
+      const isT26 = name === 'grandmommyscup';
+      const t2 = parse(
+        stringify(t1, isT26 ? { version: 'TRF26' } : undefined),
+      )!;
       expect(t2.metadata?.name).toBe(t1.metadata?.name);
       expect(t2.totalRounds).toBe(t1.totalRounds);
       expect(t2.players).toHaveLength(t1.players.length);
