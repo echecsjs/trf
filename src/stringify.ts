@@ -341,7 +341,9 @@ export default function stringify(
     lines.push(`XXR ${data.totalRounds}`);
   }
 
-  // withdrawnPlayers not yet on TournamentData; XXZ not emitted
+  if (data.withdrawnPlayers !== undefined && data.withdrawnPlayers.length > 0) {
+    lines.push(`XXZ ${data.withdrawnPlayers.join(' ')}`);
+  }
 
   for (const pa of data.playerAccelerations ?? []) {
     const pointsPart = pa.points
@@ -419,7 +421,9 @@ export default function stringify(
         lines.push(`162  ${entries.join('    ')}`);
       }
     }
-    // startingRankMethod not yet on TournamentMetadata; 172 not emitted
+    if (meta?.startingRankMethod !== undefined) {
+      lines.push(`172 ${meta.startingRankMethod}`);
+    }
     if (meta?.pairingController !== undefined) {
       lines.push(`182 ${meta.pairingController}`);
     }

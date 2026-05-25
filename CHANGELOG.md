@@ -1,5 +1,27 @@
 # Changelog
 
+## 4.0.0 — 2026-05-25
+
+### Changed
+
+- **BREAKING:** `parse()` now returns `TournamentData | null` instead of
+  `Tournament | null`. The `Tournament` type (extending `TournamentData` with
+  TRF-specific fields) is removed.
+- **BREAKING:** `stringify()` now accepts `(data: TournamentData, options?)`.
+  TRF-specific fields (`version`, `abnormalPoints`, `colourSequence`, team tags,
+  etc.) moved to `StringifyOptions`.
+- Tag 299 (abnormal points) converted to `PointAdjustment[]` at parse time.
+- Tag XXZ (absent players) mapped to `TournamentData.withdrawnPlayers`.
+- Tag 172 (starting rank method) mapped to
+  `TournamentMetadata.startingRankMethod`.
+- Derivable values (`numberOfPlayers`, `byes`, `forfeitedMatches`) computed by
+  `stringify()` internally.
+
+### Removed
+
+- `Tournament` type export.
+- `ResultCode` type export (internal).
+
 ## 3.4.0 — 2026-04-18
 
 ### Added

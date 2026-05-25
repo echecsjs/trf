@@ -883,7 +883,11 @@ export default function parse(
         break;
       }
       case '172': {
-        // startingRankMethod is not yet on TournamentMetadata; dropping for now
+        const srm = line.slice(4).trim();
+        if (srm.length > 0) {
+          tournament.metadata ??= {};
+          tournament.metadata.startingRankMethod = srm;
+        }
         break;
       }
       case '182': {
@@ -1047,7 +1051,17 @@ export default function parse(
         break;
       }
       case 'XXZ': {
-        // withdrawnPlayers is not yet on TournamentData; dropping for now
+        const ids = line
+          .slice(4)
+          .trim()
+          .split(/\s+/)
+          .map(Number)
+          .filter((n) => n > 0)
+          .map(String);
+        if (ids.length > 0) {
+          tournament.withdrawnPlayers ??= [];
+          tournament.withdrawnPlayers.push(...ids);
+        }
         break;
       }
       case '013': {
