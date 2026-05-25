@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@echecs/tournament':
-        specifier: ^3.1.0
-        version: 3.1.0
+        specifier: ^3.1.1
+        version: 3.1.1
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -111,8 +111,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@echecs/tournament@3.1.0':
-    resolution: {integrity: sha512-eXc0BMjpimolwpcPnuzEClyFZ90TnN2nLEJLJ7UCr4oFCstjI2lUbABnLE7HsKUYg+j7QadgtTR2J+wcflDlwg==}
+  '@echecs/tournament@3.1.1':
+    resolution: {integrity: sha512-EIXTR1lqq5umL7ZV849brscdAYb02yS8vZ1WtK1gsfK5Yt/IwGEvINKgCHBbvIP6KzalTBnJVQLmNAp61QqzFg==}
     engines: {node: '>=22'}
 
   '@emnapi/core@1.10.0':
@@ -1412,8 +1412,8 @@ packages:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
 
-  postcss@8.5.14:
-    resolution: {integrity: sha512-SoSL4+OSEtR99LHFZQiJLkT59C5B1amGO1NzTwj7TT1qCUgUO6hxOvzkOYxD+vMrXBM3XJIKzokoERdqQq/Zmg==}
+  postcss@8.5.15:
+    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
 
   prelude-ls@1.2.1:
@@ -1831,7 +1831,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@echecs/tournament@3.1.0': {}
+  '@echecs/tournament@3.1.1': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -2930,7 +2930,7 @@ snapshots:
 
   pluralize@8.0.0: {}
 
-  postcss@8.5.14:
+  postcss@8.5.15:
     dependencies:
       nanoid: 3.3.12
       picocolors: 1.1.1
@@ -3229,7 +3229,7 @@ snapshots:
       '@oxc-project/runtime': 0.115.0
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.14
+      postcss: 8.5.15
       rolldown: 1.0.0-rc.9(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
       tinyglobby: 0.2.16
     optionalDependencies:
