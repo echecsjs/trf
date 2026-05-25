@@ -14,7 +14,6 @@ import {
 } from './columns.js';
 
 import type {
-  AbnormalPoints,
   NationalRating,
   ParseError,
   ParseOptions,
@@ -22,16 +21,15 @@ import type {
   Player,
   PlayerAcceleration,
   ResultCode,
-  RoundResult,
   ScoringSystem,
-  Sex,
   Team,
-  TeamRoundResult801,
-  TeamRoundResult802,
-  Title,
-  Tournament,
-  Version,
 } from './types.js';
+import type {
+  Bye,
+  CompletedRound,
+  Game,
+  TournamentData,
+} from '@echecs/tournament';
 
 const KNOWN_HEADER_TAGS = new Set([
   '###',
@@ -73,31 +71,6 @@ const KNOWN_HEADER_TAGS = new Set([
   'XXZ',
 ]);
 
-const TRF26_ONLY_TAGS = new Set([
-  '###',
-  '142',
-  '152',
-  '162',
-  '172',
-  '182',
-  '192',
-  '202',
-  '212',
-  '222',
-  '240',
-  '250',
-  '260',
-  '299',
-  '300',
-  '310',
-  '320',
-  '330',
-  '352',
-  '362',
-  '801',
-  '802',
-]);
-
 const VALID_RESULT_CODES = new Set<ResultCode>([
   '+',
   '-',
@@ -113,8 +86,10 @@ const VALID_RESULT_CODES = new Set<ResultCode>([
   'Z',
 ]);
 
+type Sex = 'm' | 'w';
 const VALID_SEXES = new Set<Sex>(['m', 'w']);
 
+type Title = 'CM' | 'FM' | 'GM' | 'IM' | 'WCM' | 'WFM' | 'WGM' | 'WIM';
 const VALID_TITLES = new Set<Title>([
   'CM',
   'FM',
@@ -134,6 +109,19 @@ const JAVAFO_TITLE_MAP = new Map<string, Title>([
   ['m', 'IM'],
   ['w', 'WIM'],
 ]);
+
+// Internal per-player round entry used during parsing before building CompletedRound[].
+interface RawRoundEntry {
+  color: 'b' | 'w' | '-';
+  opponentId: string | null;
+  result: ResultCode;
+  round: number;
+}
+
+// Internal player representation with raw round entries (before CompletedRound assembly).
+interface PlayerWithRaw extends Player {
+  _rawRounds: RawRoundEntry[];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -188,7 +176,7 @@ function parsePlayerLine(
   lineNumber: number,
   lineOffset: number,
   onWarning?: (w: ParseWarning) => void,
-): Player {
+): PlayerWithRaw {
   const pairingNumber =
     Number(line.slice(COL_PAIRING_NUMBER, COL_SEX).trim()) || 0;
 
@@ -221,7 +209,7 @@ function parsePlayerLine(
   // rank defaults to 0 when blank (required field with no optional counterpart)
   const rank = Number(line.slice(COL_RANK, COL_RANK + 5).trim()) || 0;
 
-  const results: RoundResult[] = [];
+  const rawRounds: RawRoundEntry[] = [];
   const resultsSection = line.slice(ROUND_RESULTS_OFFSET);
 
   for (
@@ -278,45 +266,440 @@ function parsePlayerLine(
     // '-' is the TRF marker for byes (no color assigned); preserve as-is
     const colorMap: Record<string, 'b' | 'w' | '-'> = { b: 'b', w: 'w' };
     const color: 'b' | 'w' | '-' = colorMap[colorRaw] ?? '-';
-    // eslint-disable-next-line unicorn/no-null
-    const opponentId = opponentRaw === '0000' ? null : Number(opponentRaw);
     const round = Math.floor(index / ROUND_ENTRY_LENGTH) + 1;
 
-    results.push({
+    rawRounds.push({
       color,
-      opponentId,
+      opponentId: opponentRaw === '0000' ? null : String(Number(opponentRaw)), // eslint-disable-line unicorn/no-null
       result: resultRaw as ResultCode,
       round,
     });
   }
 
-  return {
-    birthDate,
-    federation,
-    fideId,
-    name,
-    pairingNumber,
+  const player: PlayerWithRaw = {
+    _rawRounds: rawRounds,
+    id: String(pairingNumber),
     points,
     rank,
-    rating,
-    results,
-    sex,
-    title,
+    startingRank: pairingNumber,
   };
+
+  if (birthDate !== undefined) player.birthDate = birthDate;
+  if (federation !== undefined) player.federation = federation;
+  if (fideId !== undefined) player.fideId = fideId;
+  if (name.length > 0) player.name = name;
+  if (rating !== undefined) player.rating = rating;
+  if (sex !== undefined) player.sex = sex;
+  if (title !== undefined) player.title = title;
+
+  return player;
 }
 
-function detectVersion(lines: string[]): Version {
-  for (const line of lines) {
-    const tag = line.slice(0, 3);
-    if (TRF26_ONLY_TAGS.has(tag)) {
-      return 'TRF26';
-    }
-    // NRS record: exactly 3 uppercase letters not already known
-    if (/^[A-Z]{3}$/.test(tag) && !KNOWN_HEADER_TAGS.has(tag)) {
-      return 'TRF26';
+// ---------------------------------------------------------------------------
+// Build CompletedRound[] from per-player raw round data
+// ---------------------------------------------------------------------------
+
+function buildCompletedRounds(
+  players: PlayerWithRaw[],
+  totalRounds: number,
+  onWarning?: (w: ParseWarning) => void,
+): CompletedRound[] {
+  const completedRounds: CompletedRound[] = [];
+
+  // Build a map from player id → player for quick lookup
+  const playerMap = new Map<string, PlayerWithRaw>();
+  for (const player of players) {
+    playerMap.set(player.id, player);
+  }
+
+  // Determine the actual number of rounds if totalRounds is 0
+  let maxRound = totalRounds;
+  if (maxRound === 0) {
+    for (const player of players) {
+      for (const entry of player._rawRounds) {
+        if (entry.round > maxRound) {
+          maxRound = entry.round;
+        }
+      }
     }
   }
-  return 'TRF16';
+
+  for (let roundNumber = 1; roundNumber <= maxRound; roundNumber++) {
+    const games: Game[] = [];
+    const byes: Bye[] = [];
+    const processedPairs = new Set<string>();
+
+    for (const player of players) {
+      const entry = player._rawRounds.find((r) => r.round === roundNumber);
+      if (entry === undefined) continue;
+
+      // Byes: opponentId is null
+      if (entry.opponentId === null) {
+        const byeResult = entry.result;
+        let byeKind: Bye['kind'];
+        switch (byeResult) {
+          case 'F': {
+            byeKind = 'full';
+            break;
+          }
+          case 'H': {
+            byeKind = 'half';
+            break;
+          }
+          case 'Z': {
+            byeKind = 'zero';
+            break;
+          }
+          case 'U': {
+            byeKind = 'pairing';
+            break;
+          }
+          default: {
+            // Other result codes with no opponent (e.g., '+', '-' with 0000)
+            byeKind = 'zero';
+          }
+        }
+        byes.push({ kind: byeKind, player: player.id });
+        continue;
+      }
+
+      // Only process games from the white player's perspective to avoid duplicates
+      if (entry.color !== 'w') {
+        continue;
+      }
+
+      const pairKey = [player.id, entry.opponentId].toSorted().join(':');
+      if (processedPairs.has(pairKey)) {
+        continue;
+      }
+      processedPairs.add(pairKey);
+
+      const opponentEntry = playerMap
+        .get(entry.opponentId)
+        ?._rawRounds.find((r) => r.round === roundNumber);
+
+      // Build the Game from white's perspective
+      const whiteId = player.id;
+      const blackId = entry.opponentId;
+      const whiteResult = entry.result;
+      const blackResult = opponentEntry?.result;
+
+      // Handle double forfeit
+      if (whiteResult === '-' && blackResult === '-') {
+        const game: Game = {
+          black: blackId,
+          forfeit: 'both',
+          result: 'none',
+          white: whiteId,
+        };
+        games.push(game);
+        continue;
+      }
+
+      // Determine the game from white's result code
+      let game: Game | undefined;
+
+      switch (whiteResult) {
+        case '1': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        case '0': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        case '=': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'draw',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'W': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'L': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'D': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'draw',
+            white: whiteId,
+          };
+          break;
+        }
+        case '+': {
+          // White wins by forfeit (black forfeits)
+          game = {
+            black: blackId,
+            forfeit: 'black',
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        case '-': {
+          // White forfeits (black wins by forfeit)
+          game = {
+            black: blackId,
+            forfeit: 'white',
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        default: {
+          // Unknown result — try to use black's result if available
+          if (blackResult !== undefined) {
+            switch (blackResult) {
+              case '1': {
+                game = {
+                  black: blackId,
+                  rated: true,
+                  result: 'black',
+                  white: whiteId,
+                };
+                break;
+              }
+              case '0': {
+                game = {
+                  black: blackId,
+                  rated: true,
+                  result: 'white',
+                  white: whiteId,
+                };
+                break;
+              }
+              case '=': {
+                game = {
+                  black: blackId,
+                  rated: true,
+                  result: 'draw',
+                  white: whiteId,
+                };
+                break;
+              }
+              case 'W': {
+                game = {
+                  black: blackId,
+                  rated: false,
+                  result: 'black',
+                  white: whiteId,
+                };
+                break;
+              }
+              case 'L': {
+                game = {
+                  black: blackId,
+                  rated: false,
+                  result: 'white',
+                  white: whiteId,
+                };
+                break;
+              }
+              case 'D': {
+                game = {
+                  black: blackId,
+                  rated: false,
+                  result: 'draw',
+                  white: whiteId,
+                };
+                break;
+              }
+              case '+': {
+                game = {
+                  black: blackId,
+                  forfeit: 'white',
+                  result: 'black',
+                  white: whiteId,
+                };
+                break;
+              }
+              case '-': {
+                game = {
+                  black: blackId,
+                  forfeit: 'black',
+                  result: 'white',
+                  white: whiteId,
+                };
+                break;
+              }
+              default:
+              // Can't determine result
+            }
+          }
+          if (game === undefined) {
+            onWarning?.(
+              makeWarning(
+                `Cannot determine game result for players ${whiteId} vs ${blackId} in round ${roundNumber}`,
+                0,
+                0,
+                0,
+              ),
+            );
+            // Fallback: create a draw
+            game = {
+              black: blackId,
+              rated: false,
+              result: 'draw',
+              white: whiteId,
+            };
+          }
+        }
+      }
+
+      games.push(game);
+    }
+
+    // Also check for players who played black but their white opponent isn't in the list
+    // (handles missing white player entries)
+    for (const player of players) {
+      const entry = player._rawRounds.find((r) => r.round === roundNumber);
+      if (
+        entry === undefined ||
+        entry.opponentId === null ||
+        entry.color !== 'b'
+      ) {
+        continue;
+      }
+
+      const pairKey = [player.id, entry.opponentId].toSorted().join(':');
+      if (processedPairs.has(pairKey)) {
+        continue;
+      }
+      processedPairs.add(pairKey);
+
+      // White player is the opponent (who has no 001 line or had no entry for this round)
+      const whiteId = entry.opponentId;
+      const blackId = player.id;
+      const blackResult = entry.result;
+
+      onWarning?.(
+        makeWarning(
+          `White player ${whiteId} has no entry for round ${roundNumber}; game derived from black player ${blackId}`,
+          0,
+          0,
+          0,
+        ),
+      );
+
+      let game: Game;
+      switch (blackResult) {
+        case '1': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        case '0': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        case '=': {
+          game = {
+            black: blackId,
+            rated: true,
+            result: 'draw',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'W': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'L': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        case 'D': {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'draw',
+            white: whiteId,
+          };
+          break;
+        }
+        case '+': {
+          game = {
+            black: blackId,
+            forfeit: 'white',
+            result: 'black',
+            white: whiteId,
+          };
+          break;
+        }
+        case '-': {
+          game = {
+            black: blackId,
+            forfeit: 'black',
+            result: 'white',
+            white: whiteId,
+          };
+          break;
+        }
+        default: {
+          game = {
+            black: blackId,
+            rated: false,
+            result: 'draw',
+            white: whiteId,
+          };
+        }
+      }
+
+      games.push(game);
+    }
+
+    completedRounds.push({ byes, games });
+  }
+
+  return completedRounds;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +709,7 @@ function detectVersion(lines: string[]): Version {
 export default function parse(
   input: string,
   options?: ParseOptions,
-): Tournament | null {
+): TournamentData | null {
   const content = input.replace(/^\uFEFF/, '').trim();
 
   if (content.length === 0) {
@@ -336,12 +719,11 @@ export default function parse(
   }
 
   const lines = content.split('\n');
-  const version = detectVersion(lines);
 
-  const tournament: Tournament = {
+  const tournament: TournamentData = {
+    completedRounds: [],
     players: [],
-    rounds: 0,
-    version,
+    totalRounds: 0,
   };
 
   // Track the byte offset of the start of each line within `content`.
@@ -354,8 +736,9 @@ export default function parse(
 
     switch (tag) {
       case '###': {
-        tournament.comments ??= [];
-        tournament.comments.push(line.slice(4));
+        tournament.metadata ??= {};
+        tournament.metadata.comments ??= [];
+        tournament.metadata.comments.push(line.slice(4));
         break;
       }
       case '001': {
@@ -365,61 +748,61 @@ export default function parse(
         break;
       }
       case '012': {
-        tournament.name = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.name = line.slice(4).trim();
         break;
       }
       case '022': {
-        tournament.city = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.city = line.slice(4).trim();
         break;
       }
       case '032': {
-        tournament.federation = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.federation = line.slice(4).trim();
         break;
       }
       case '042': {
-        tournament.startDate = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.startDate = line.slice(4).trim();
         break;
       }
       case '052': {
-        tournament.endDate = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.endDate = line.slice(4).trim();
         break;
       }
       case '062': {
-        const n062 = Number(line.slice(4).trim());
-        if (n062 > 0) {
-          tournament.numberOfPlayers = n062;
-        }
+        // numberOfPlayers is TRF-specific; not stored on TournamentData
         break;
       }
       case '072': {
-        const n072 = Number(line.slice(4).trim());
-        if (n072 > 0) {
-          tournament.numberOfRatedPlayers = n072;
-        }
+        // numberOfRatedPlayers is TRF-specific; not stored on TournamentData
         break;
       }
       case '082': {
-        const n082 = Number(line.slice(4).trim());
-        if (n082 > 0) {
-          tournament.numberOfTeams = n082;
-        }
+        // numberOfTeams is TRF-specific; not stored on TournamentData
         break;
       }
       case '092': {
-        tournament.tournamentType = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.tournamentType = line.slice(4).trim();
         break;
       }
       case '102': {
-        tournament.chiefArbiter = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.chiefArbiter = line.slice(4).trim();
         break;
       }
       case '112': {
-        tournament.deputyArbiters ??= [];
-        tournament.deputyArbiters.push(line.slice(4).trim());
+        tournament.metadata ??= {};
+        tournament.metadata.deputyArbiters ??= [];
+        tournament.metadata.deputyArbiters.push(line.slice(4).trim());
         break;
       }
       case '122': {
-        tournament.timeControl = line.slice(4).trim();
+        tournament.metadata ??= {};
+        tournament.metadata.timeControl = line.slice(4).trim();
         break;
       }
       case '132': {
@@ -437,7 +820,8 @@ export default function parse(
           }
         }
         if (dates.length > 0) {
-          tournament.roundDates = dates;
+          tournament.metadata ??= {};
+          tournament.metadata.roundDates = dates;
         }
         break;
       }
@@ -445,15 +829,12 @@ export default function parse(
       case '142': {
         const r = Number(line.slice(4).trim());
         if (r > 0) {
-          tournament.rounds = r;
+          tournament.totalRounds = r;
         }
         break;
       }
       case '152': {
-        const c = line.slice(4).trim();
-        if (c === 'W' || c === 'B') {
-          tournament.initialColour = c;
-        }
+        // initialColour is TRF-specific; not stored on TournamentData
         break;
       }
       case '162': {
@@ -504,22 +885,21 @@ export default function parse(
       case '172': {
         const srm = line.slice(4).trim();
         if (srm.length > 0) {
-          tournament.startingRankMethod = srm;
+          tournament.metadata ??= {};
+          tournament.metadata.startingRankMethod = srm;
         }
         break;
       }
       case '182': {
         const pc = line.slice(4).trim();
         if (pc.length > 0) {
-          tournament.pairingController = pc;
+          tournament.metadata ??= {};
+          tournament.metadata.pairingController = pc;
         }
         break;
       }
       case '192': {
-        const ett = line.slice(4).trim();
-        if (ett.length > 0) {
-          tournament.encodedTournamentType = ett;
-        }
+        // encodedTournamentType is TRF-specific; not stored on TournamentData
         break;
       }
       case '202': {
@@ -530,56 +910,23 @@ export default function parse(
         break;
       }
       case '212': {
-        const value212 = line.slice(4).trim();
-        if (value212.length > 0) {
-          tournament.standingsTiebreaks = value212
-            .split(',')
-            .map((s) => s.trim());
-        }
+        // standingsTiebreaks is TRF-specific; not stored on TournamentData
         break;
       }
       case '222': {
-        const etc = line.slice(4).trim();
-        if (etc.length > 0) {
-          tournament.encodedTimeControl = etc;
-        }
+        // encodedTimeControl is TRF-specific; not stored on TournamentData
         break;
       }
       case '352': {
-        const cs = line.slice(4).trim();
-        if (cs.length > 0) {
-          tournament.colourSequence = cs;
-        }
+        // colourSequence is TRF-specific; not stored on TournamentData
         break;
       }
       case '362': {
-        const tss = line.slice(4).trim();
-        if (tss.length > 0) {
-          tournament.teamScoringSystem = tss;
-        }
+        // teamScoringSystem is TRF-specific; not stored on TournamentData
         break;
       }
       case 'XXC': {
-        for (const token of line.slice(4).trim().split(/\s+/)) {
-          switch (token) {
-            case 'rank': {
-              tournament.useRankingId = true;
-
-              break;
-            }
-            case 'white1': {
-              tournament.initialColour = 'W';
-
-              break;
-            }
-            case 'black1': {
-              tournament.initialColour = 'B';
-
-              break;
-            }
-            // No default
-          }
-        }
+        // useRankingId and initialColour are TRF-specific; not stored on TournamentData
         break;
       }
       case 'XXA': {
@@ -595,7 +942,7 @@ export default function parse(
             }
           }
           const xxaEntry: PlayerAcceleration = {
-            pairingNumber: xxaPairingNumber,
+            playerId: String(xxaPairingNumber),
             points: xxaPoints,
           };
           tournament.playerAccelerations ??= [];
@@ -604,7 +951,7 @@ export default function parse(
         break;
       }
       case 'XXR': {
-        tournament.rounds = Number(line.slice(4).trim()) || 0;
+        tournament.totalRounds = Number(line.slice(4).trim()) || 0;
         break;
       }
       case 'XXP': {
@@ -613,7 +960,8 @@ export default function parse(
           .trim()
           .split(/\s+/)
           .map(Number)
-          .filter((n) => n > 0);
+          .filter((n) => n > 0)
+          .map(String);
         if (xxpIds.length > 0) {
           tournament.prohibitedPairings ??= [];
           tournament.prohibitedPairings.push({
@@ -708,10 +1056,11 @@ export default function parse(
           .trim()
           .split(/\s+/)
           .map(Number)
-          .filter((n) => n > 0);
+          .filter((n) => n > 0)
+          .map(String);
         if (ids.length > 0) {
-          tournament.absentPlayers ??= [];
-          tournament.absentPlayers.push(...ids);
+          tournament.withdrawnPlayers ??= [];
+          tournament.withdrawnPlayers.push(...ids);
         }
         break;
       }
@@ -720,19 +1069,7 @@ export default function parse(
         break;
       }
       case '240': {
-        const typeRaw = line.slice(4, 5).trim();
-        if (typeRaw === 'F' || typeRaw === 'H' || typeRaw === 'Z') {
-          const round = Number(line.slice(6, 9).trim()) || 0;
-          const playerIds: number[] = [];
-          for (let pos = 10; pos < line.length; pos += 5) {
-            const id = Number(line.slice(pos, pos + 4).trim());
-            if (id > 0) {
-              playerIds.push(id);
-            }
-          }
-          tournament.byes ??= [];
-          tournament.byes.push({ playerIds, round, type: typeRaw });
-        }
+        // byes (tag 240) are TRF-specific; not stored on TournamentData
         break;
       }
       case '250': {
@@ -744,10 +1081,10 @@ export default function parse(
         const lastPlayerId250 = Number(line.slice(27, 31).trim()) || 0;
         tournament.acceleratedRounds ??= [];
         tournament.acceleratedRounds.push({
-          firstPlayerId: firstPlayerId250,
+          firstPlayerId: String(firstPlayerId250),
           firstRound: firstRound250,
           gamePoints: gamePoints250,
-          lastPlayerId: lastPlayerId250,
+          lastPlayerId: String(lastPlayerId250),
           lastRound: lastRound250,
           matchPoints: matchPoints250,
         });
@@ -756,11 +1093,11 @@ export default function parse(
       case '260': {
         const firstRound260 = Number(line.slice(4, 7).trim()) || 0;
         const lastRound260 = Number(line.slice(8, 11).trim()) || 0;
-        const playerIds260: number[] = [];
+        const playerIds260: string[] = [];
         for (let pos = 12; pos < line.length; pos += 5) {
           const id = Number(line.slice(pos, pos + 4).trim());
           if (id > 0) {
-            playerIds260.push(id);
+            playerIds260.push(String(id));
           }
         }
         tournament.prohibitedPairings ??= [];
@@ -784,118 +1121,64 @@ export default function parse(
           'W',
           'Z',
         ]);
-        const type299 = validTypes299.has(typeRaw299)
-          ? (typeRaw299 as AbnormalPoints['type'])
-          : ' ';
-        const matchPoints299 = Number(line.slice(7, 11).trim()) || 0;
+        const type299 = validTypes299.has(typeRaw299) ? typeRaw299 : ' ';
         const gamePoints299 = Number(line.slice(13, 17).trim()) || 0;
         const round299 = Number(line.slice(19, 22).trim()) || 0;
-        const playerIds299: number[] = [];
+        const playerIds299: string[] = [];
         for (let pos = 23; pos < line.length; pos += 5) {
           const id = Number(line.slice(pos, pos + 4).trim());
           if (id > 0) {
-            playerIds299.push(id);
+            playerIds299.push(String(id));
           }
         }
-        tournament.abnormalPoints ??= [];
-        tournament.abnormalPoints.push({
-          gamePoints: gamePoints299,
-          matchPoints: matchPoints299,
-          playerIds: playerIds299,
-          round: round299,
-          type: type299,
-        });
+        tournament.adjustments ??= [];
+        for (const playerId of playerIds299) {
+          tournament.adjustments.push({
+            playerId,
+            points: gamePoints299,
+            reason: `abnormal points (type: ${type299})`,
+            round: round299,
+          });
+        }
         break;
       }
       case '300': {
-        const round300 = Number(line.slice(4, 7).trim()) || 0;
-        const teamId300 = Number(line.slice(8, 11).trim()) || 0;
-        const opponentTeamId300 = Number(line.slice(12, 15).trim()) || 0;
-        const playerIds300: (number | null)[] = [];
-        for (let pos = 16; pos < line.length; pos += 5) {
-          const raw300 = line.slice(pos, pos + 4).trim();
-          const id300 = Number(raw300);
-          // eslint-disable-next-line unicorn/no-null
-          playerIds300.push(raw300 === '' || id300 === 0 ? null : id300);
-        }
-        tournament.outOfOrderLineups ??= [];
-        tournament.outOfOrderLineups.push({
-          opponentTeamId: opponentTeamId300,
-          playerIds: playerIds300,
-          round: round300,
-          teamId: teamId300,
-        });
+        // outOfOrderLineups is TRF-specific; not stored on TournamentData
         break;
       }
       case '320': {
-        const matchPoints320 = Number(line.slice(4, 8).trim()) || 0;
-        const gamePoints320 = Number(line.slice(9, 13).trim()) || 0;
-        const teamIdPerRound320: (number | null)[] = [];
-        for (let pos = 14; pos < line.length; pos += 4) {
-          const raw320 = line.slice(pos, pos + 3).trim();
-          if (raw320 === '') {
-            break;
-          }
-          const id320 = Number(raw320);
-          // eslint-disable-next-line unicorn/no-null
-          teamIdPerRound320.push(id320 === 0 ? null : id320);
-        }
-        tournament.teamPairingAllocatedByes = {
-          gamePoints: gamePoints320,
-          matchPoints: matchPoints320,
-          teamIdPerRound: teamIdPerRound320,
-        };
+        // teamPairingAllocatedByes is TRF-specific; not stored on TournamentData
         break;
       }
       case '330': {
-        const typeRaw330 = line.slice(4, 6);
-        if (typeRaw330 === '+-' || typeRaw330 === '-+' || typeRaw330 === '--') {
-          const round330 = Number(line.slice(7, 10).trim()) || 0;
-          const whiteTeamId330 = Number(line.slice(11, 14).trim()) || 0;
-          const blackTeamId330 = Number(line.slice(15, 18).trim()) || 0;
-          tournament.forfeitedMatches ??= [];
-          tournament.forfeitedMatches.push({
-            blackTeamId: blackTeamId330,
-            round: round330,
-            type: typeRaw330,
-            whiteTeamId: whiteTeamId330,
-          });
-        }
+        // forfeitedMatches is TRF-specific; not stored on TournamentData
         break;
       }
       case '310': {
         const pairingNumber = Number(line.slice(4, 7).trim()) || 0;
         const name = line.slice(8, 40).trim();
         const nickname = line.slice(41, 46).trim() || undefined;
-        const strengthFactorRaw = line.slice(47, 53).trim();
-        const strengthFactor =
-          strengthFactorRaw.length > 0
-            ? Number(strengthFactorRaw) || undefined
-            : undefined;
         const matchPoints = Number(line.slice(54, 60).trim()) || 0;
         const gamePoints = Number(line.slice(61, 67).trim()) || 0;
         const rank = Number(line.slice(68, 71).trim()) || 0;
-        const playerIds: number[] = [];
+        const playerIds: string[] = [];
         for (let pos = 73; pos < line.length; pos += 5) {
           const id = Number(line.slice(pos, pos + 4).trim());
           if (id > 0) {
-            playerIds.push(id);
+            playerIds.push(String(id));
           }
         }
         if (pairingNumber > 0) {
           const team: Team = {
             gamePoints,
+            id: String(pairingNumber),
             matchPoints,
             name,
-            pairingNumber,
             playerIds,
             rank,
           };
           if (nickname !== undefined) {
             team.nickname = nickname;
-          }
-          if (strengthFactor !== undefined) {
-            team.strengthFactor = strengthFactor;
           }
           tournament.teams ??= [];
           tournament.teams.push(team);
@@ -903,118 +1186,11 @@ export default function parse(
         break;
       }
       case '801': {
-        const BYE_MAP_801: Record<string, 'FPB' | 'HPB' | 'PAB' | 'ZPB'> = {
-          FFFF: 'FPB',
-          HHHH: 'HPB',
-          PPPP: 'PAB',
-          ZZZZ: 'ZPB',
-        };
-
-        const teamId801 = Number(line.slice(3, 7).trim()) || 0;
-        if (teamId801 === 0) break;
-
-        const nickname801 = line.slice(7, 12).trim() || undefined;
-        const matchPoints801 = Number(line.slice(12, 16).trim()) || 0;
-        const gamePoints801 = Number(line.slice(16, 22).trim()) || 0;
-
-        const results801: TeamRoundResult801[] = [];
-        let round801 = 1;
-        for (let pos = 22; pos < line.length; pos += 16) {
-          const block = line.slice(pos, pos + 16);
-          if (block.trim().length === 0) break;
-
-          // Check for bye marker (FFFF, HHHH, ZZZZ anywhere in block)
-          const blockTrimmed = block.trim();
-          const byeType = BYE_MAP_801[blockTrimmed];
-          if (byeType === undefined) {
-            // Normal round: opponent in first ~4 chars, rest is raw
-            const oppRaw = block.slice(0, 5).trim();
-            const opponentId = Number(oppRaw) || null; // eslint-disable-line unicorn/no-null
-            const raw = block.slice(5).trimEnd();
-
-            results801.push({
-              opponentId,
-              raw,
-              round: round801,
-            });
-          } else {
-            results801.push({
-              // eslint-disable-next-line unicorn/no-null
-              opponentId: null,
-              raw: blockTrimmed,
-              round: round801,
-              type: byeType,
-            });
-          }
-
-          round801 += 1;
-        }
-
-        tournament.teamRoundResults ??= [];
-        tournament.teamRoundResults.push({
-          gamePoints: gamePoints801,
-          matchPoints: matchPoints801,
-          nickname: nickname801,
-          results: results801,
-          tag: '801',
-          teamId: teamId801,
-        });
-
+        // teamRoundResults (801) is TRF-specific; not stored on TournamentData
         break;
       }
       case '802': {
-        const BYE_TYPES_802 = new Set(['FPB', 'HPB', 'PAB', 'ZPB']);
-        const teamId802 = Number(line.slice(4, 7).trim()) || 0;
-        if (teamId802 === 0) break;
-
-        const nickname802 = line.slice(8, 13).trim() || undefined;
-        const matchPoints802 = Number(line.slice(14, 20).trim()) || 0;
-        const gamePoints802 = Number(line.slice(21, 27).trim()) || 0;
-
-        const results802: TeamRoundResult802[] = [];
-        let round802 = 1;
-        for (let pos = 28; pos < line.length; pos += 13) {
-          const block = line.slice(pos, pos + 13);
-          if (block.trim().length === 0) break;
-
-          const oppRaw = block.slice(0, 3).trim();
-          const isBye = BYE_TYPES_802.has(oppRaw);
-
-          const colorRaw = block[4]?.trim() ?? '';
-          const gpRaw = block.slice(6, 10).trim();
-          const forfeitRaw = block[10]?.trim() ?? '';
-
-          const entry: TeamRoundResult802 = {
-            gamePoints: Number(gpRaw) || 0,
-            // eslint-disable-next-line unicorn/no-null
-            opponentId: isBye ? null : Number(oppRaw) || null,
-            round: round802,
-          };
-
-          if (isBye) {
-            entry.type = oppRaw as 'FPB' | 'HPB' | 'PAB' | 'ZPB';
-          }
-          if (colorRaw === 'w' || colorRaw === 'b') {
-            entry.color = colorRaw;
-          }
-          if (forfeitRaw === 'f' || forfeitRaw === 'F') {
-            entry.forfeit = true;
-          }
-
-          results802.push(entry);
-          round802 += 1;
-        }
-
-        tournament.teamRoundResults ??= [];
-        tournament.teamRoundResults.push({
-          gamePoints: gamePoints802,
-          matchPoints: matchPoints802,
-          nickname: nickname802,
-          results: results802,
-          tag: '802',
-          teamId: teamId802,
-        });
-
+        // teamRoundResults (802) is TRF-specific; not stored on TournamentData
         break;
       }
       default: {
@@ -1029,46 +1205,25 @@ export default function parse(
           if (pairingNumber > 0) {
             if (rating > 0) {
               const player = tournament.players.find(
-                (p) => p.pairingNumber === pairingNumber,
+                (p) => p.id === String(pairingNumber),
               );
               if (player !== undefined) {
                 player.nationalRatings ??= [];
-                const sexRaw = line.slice(COL_SEX, COL_SEX + 1).trim();
                 const classificationRaw = line
                   .slice(COL_TITLE, COL_NAME)
-                  .trim();
-                const nameRaw = line.slice(COL_NAME, COL_RATING - 1).trim();
-                const originRaw = line
-                  .slice(COL_FEDERATION, COL_FEDERATION + 3)
                   .trim();
                 const nationalIdRaw = line
                   .slice(COL_FIDE_ID, COL_BIRTH_DATE - 1)
                   .trim();
-                const birthDateRaw = line
-                  .slice(COL_BIRTH_DATE, COL_POINTS)
-                  .trim();
                 const nrs: NationalRating = {
                   federation: tag,
-                  pairingNumber,
                   rating,
                 };
                 if (classificationRaw.length > 0) {
                   nrs.classification = classificationRaw;
                 }
-                if (nameRaw.length > 0) {
-                  nrs.name = nameRaw;
-                }
-                if (originRaw.length > 0) {
-                  nrs.origin = originRaw;
-                }
                 if (nationalIdRaw.length > 0) {
                   nrs.nationalId = nationalIdRaw;
-                }
-                if (birthDateRaw.length > 0) {
-                  nrs.birthDate = birthDateRaw;
-                }
-                if (VALID_SEXES.has(sexRaw as Sex)) {
-                  nrs.sex = sexRaw as Sex;
                 }
                 player.nationalRatings.push(nrs);
               }
@@ -1091,6 +1246,19 @@ export default function parse(
 
     // +1 for the '\n' character that was stripped by split()
     lineOffset += line.length + 1;
+  }
+
+  // Build completedRounds from per-player raw round data
+  const playersWithRaw = tournament.players as PlayerWithRaw[];
+  tournament.completedRounds = buildCompletedRounds(
+    playersWithRaw,
+    tournament.totalRounds,
+    options?.onWarning,
+  );
+
+  // Strip internal _rawRounds from players before returning
+  for (const player of tournament.players as PlayerWithRaw[]) {
+    delete (player as { _rawRounds?: unknown })._rawRounds;
   }
 
   return tournament;

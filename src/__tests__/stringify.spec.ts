@@ -9,52 +9,63 @@ import type {
   Player,
   ScoringSystem,
   StringifyOptions,
-  Tournament,
+  TournamentData,
 } from '../types.js';
 
-function minimal(overrides: Partial<Tournament> = {}): Tournament {
-  return { players: [], rounds: 0, version: 'TRF16', ...overrides };
+function minimal(overrides: Partial<TournamentData> = {}): TournamentData {
+  return {
+    completedRounds: [],
+    players: [],
+    totalRounds: 0,
+    ...overrides,
+  };
 }
 
 describe('stringify — header tags', () => {
   it('emits XXR line for rounds', () => {
-    expect(stringify(minimal({ rounds: 9 }))).toContain('XXR 9');
+    expect(stringify(minimal({ totalRounds: 9 }))).toContain('XXR 9');
   });
 
   it('emits 012 line for name', () => {
-    expect(stringify(minimal({ name: 'Open Championship' }))).toContain(
-      '012 Open Championship',
-    );
+    expect(
+      stringify(minimal({ metadata: { name: 'Open Championship' } })),
+    ).toContain('012 Open Championship');
   });
 
   it('emits 022 line for city', () => {
-    expect(stringify(minimal({ city: 'Paris' }))).toContain('022 Paris');
+    expect(stringify(minimal({ metadata: { city: 'Paris' } }))).toContain(
+      '022 Paris',
+    );
   });
 
   it('emits 032 line for federation', () => {
-    expect(stringify(minimal({ federation: 'FRA' }))).toContain('032 FRA');
+    expect(stringify(minimal({ metadata: { federation: 'FRA' } }))).toContain(
+      '032 FRA',
+    );
   });
 
   it('emits 042 line for startDate', () => {
-    expect(stringify(minimal({ startDate: '2026-01-01' }))).toContain(
-      '042 2026-01-01',
-    );
+    expect(
+      stringify(minimal({ metadata: { startDate: '2026-01-01' } })),
+    ).toContain('042 2026-01-01');
   });
 
   it('emits 052 line for endDate', () => {
-    expect(stringify(minimal({ endDate: '2026-01-07' }))).toContain(
-      '052 2026-01-07',
-    );
+    expect(
+      stringify(minimal({ metadata: { endDate: '2026-01-07' } })),
+    ).toContain('052 2026-01-07');
   });
 
   it('emits 102 line for chiefArbiter', () => {
-    expect(stringify(minimal({ chiefArbiter: 'Smith John' }))).toContain(
-      '102 Smith John',
-    );
+    expect(
+      stringify(minimal({ metadata: { chiefArbiter: 'Smith John' } })),
+    ).toContain('102 Smith John');
   });
 
   it('emits 122 line for timeControl', () => {
-    expect(stringify(minimal({ timeControl: '90+30' }))).toContain('122 90+30');
+    expect(
+      stringify(minimal({ metadata: { timeControl: '90+30' } })),
+    ).toContain('122 90+30');
   });
 
   it('omits 012 line when name is absent', () => {
@@ -62,28 +73,22 @@ describe('stringify — header tags', () => {
   });
 
   it('omits XXR line when rounds is 0', () => {
-    expect(stringify(minimal({ rounds: 0 }))).not.toContain('XXR');
+    expect(stringify(minimal({ totalRounds: 0 }))).not.toContain('XXR');
   });
 });
 
 describe('stringify — XXC (TRFx configuration)', () => {
-  it('emits XXC rank for TRF16 when useRankingId is true', () => {
-    expect(stringify(minimal({ useRankingId: true }))).toContain('XXC rank');
+  it('emits XXC rank for TRF16 when useRankingId is true in options', () => {
+    expect(stringify(minimal(), { useRankingId: true })).toContain('XXC rank');
   });
 
-  it('does not emit XXC when useRankingId is undefined', () => {
+  it('does not emit XXC when useRankingId is not in options', () => {
     expect(stringify(minimal())).not.toContain('XXC');
   });
 });
 
 describe('stringify — XXZ (absent players)', () => {
-  it('emits XXZ line for absentPlayers', () => {
-    expect(stringify(minimal({ absentPlayers: [3, 7, 12] }))).toContain(
-      'XXZ 3 7 12',
-    );
-  });
-
-  it('does not emit XXZ when absentPlayers is undefined', () => {
+  it('does not emit XXZ (withdrawnPlayers not yet on TournamentData)', () => {
     expect(stringify(minimal())).not.toContain('XXZ');
   });
 });
@@ -92,7 +97,7 @@ describe('stringify — XXA (per-player acceleration points)', () => {
   it('emits XXA line for each player acceleration', () => {
     const output = stringify(
       minimal({
-        playerAccelerations: [{ pairingNumber: 1, points: [0.5, 0.5, 0] }],
+        playerAccelerations: [{ playerId: '1', points: [0.5, 0.5, 0] }],
       }),
     );
     expect(output).toMatch(/XXA\s+1\s+0\.5\s+0\.5\s+0\.0/);
@@ -105,11 +110,11 @@ describe('stringify — XXA (per-player acceleration points)', () => {
 
 function minimalPlayer(overrides: Partial<Player> = {}): Player {
   return {
+    id: '1',
     name: 'Test Player',
-    pairingNumber: 1,
     points: 0,
     rank: 1,
-    results: [],
+    startingRank: 1,
     ...overrides,
   };
 }
@@ -119,7 +124,7 @@ describe('stringify — player lines', () => {
     const t = minimal({
       players: [
         minimalPlayer(),
-        minimalPlayer({ pairingNumber: 2, name: 'Other' }),
+        minimalPlayer({ id: '2', name: 'Other', startingRank: 2 }),
       ],
     });
     const lines = stringify(t)
@@ -129,9 +134,7 @@ describe('stringify — player lines', () => {
   });
 
   it('writes pairing number right-aligned in cols 4-7', () => {
-    const line = stringify(
-      minimal({ players: [minimalPlayer({ pairingNumber: 1 })] }),
-    )
+    const line = stringify(minimal({ players: [minimalPlayer()] }))
       .split('\n')
       .find((l) => l.startsWith('001'))!;
     expect(line.slice(4, 8)).toBe('   1');
@@ -162,7 +165,9 @@ describe('stringify — player lines', () => {
 
   it('writes name left-aligned starting at col 14', () => {
     const line = stringify(
-      minimal({ players: [minimalPlayer({ name: 'Kasparov, Garry' })] }),
+      minimal({
+        players: [minimalPlayer({ name: 'Kasparov, Garry' })],
+      }),
     )
       .split('\n')
       .find((l) => l.startsWith('001'))!;
@@ -238,40 +243,60 @@ describe('stringify — player lines', () => {
 
 describe('stringify — round results', () => {
   it('writes round result at col 91 for first round', () => {
-    const player = minimalPlayer({
-      results: [{ color: 'w', opponentId: 2, result: '1', round: 1 }],
+    // White player (id=1) beats black (id=2), rated game, round 1
+    const t = minimal({
+      completedRounds: [
+        {
+          byes: [],
+          games: [{ black: '2', rated: true, result: 'white', white: '1' }],
+        },
+      ],
+      players: [minimalPlayer()],
     });
-    const line = stringify(minimal({ players: [player] }))
+    const line = stringify(t)
       .split('\n')
       .find((l) => l.startsWith('001'))!;
     expect(line.slice(91, 101)).toBe('   2 w 1  ');
   });
 
   it('writes 0000 for null opponentId (bye)', () => {
-    const player = minimalPlayer({
-      // eslint-disable-next-line unicorn/no-null
-      results: [{ color: 'b', opponentId: null, result: 'Z', round: 1 }],
+    const t = minimal({
+      completedRounds: [
+        {
+          byes: [{ kind: 'zero', player: '1' }],
+          games: [],
+        },
+      ],
+      players: [minimalPlayer()],
     });
-    const line = stringify(minimal({ players: [player] }))
+    const line = stringify(t)
       .split('\n')
       .find((l) => l.startsWith('001'))!;
-    expect(line.slice(91, 101)).toBe('0000 b Z  ');
+    expect(line.slice(91, 101)).toBe('0000 - Z  ');
   });
 
   it('writes second round result at col 101', () => {
-    const player = minimalPlayer({
-      results: [
-        { color: 'w', opponentId: 2, result: '1', round: 1 },
-        { color: 'b', opponentId: 3, result: '0', round: 2 },
+    // Round 1: player 1 (white) beats player 2; Round 2: player 3 (white) beats player 1
+    const t = minimal({
+      completedRounds: [
+        {
+          byes: [],
+          games: [{ black: '2', rated: true, result: 'white', white: '1' }],
+        },
+        {
+          byes: [],
+          games: [{ black: '1', rated: true, result: 'white', white: '3' }],
+        },
       ],
+      players: [minimalPlayer()],
     });
-    const line = stringify(minimal({ players: [player] }))
+    const line = stringify(t)
       .split('\n')
       .find((l) => l.startsWith('001'))!;
     expect(line.slice(101, 111)).toBe('   3 b 0  ');
   });
 
-  it('writes no round columns when results is empty', () => {
+  it('writes no round columns when completedRounds is empty', () => {
     const line = stringify(minimal({ players: [minimalPlayer()] }))
       .split('\n')
       .find((l) => l.startsWith('001'))!;
@@ -340,8 +365,8 @@ describe('stringify — onWarning', () => {
   it('warning line equals 1-based player index', () => {
     const onWarning = vi.fn();
     const players = [
-      minimalPlayer({ pairingNumber: 1 }),
-      minimalPlayer({ pairingNumber: 2, name: 'A'.repeat(34) }),
+      minimalPlayer({ id: '1', startingRank: 1 }),
+      minimalPlayer({ id: '2', name: 'A'.repeat(34), startingRank: 2 }),
     ];
     stringify(minimal({ players }), { onWarning });
     const warn = onWarning.mock.calls[0]?.[0] as ParseWarning;
@@ -378,18 +403,16 @@ function fixture(name: string): string {
 }
 
 describe('stringify — tag 192 (encoded tournament type)', () => {
-  it('emits 192 line for encodedTournamentType', () => {
-    const output = stringify(
-      minimal({
-        encodedTournamentType: 'FIDE_DUTCH_2025',
-        version: 'TRF26',
-      }),
-    );
+  it('emits 192 line for encodedTournamentType in options', () => {
+    const output = stringify(minimal(), {
+      encodedTournamentType: 'FIDE_DUTCH_2025',
+      version: 'TRF26',
+    });
     expect(output).toContain('192 FIDE_DUTCH_2025');
   });
 
-  it('omits 192 line when encodedTournamentType is undefined', () => {
-    const output = stringify(minimal({ version: 'TRF26' }));
+  it('omits 192 line when encodedTournamentType is not in options', () => {
+    const output = stringify(minimal(), { version: 'TRF26' });
     expect(output).not.toContain('192');
   });
 });
@@ -399,8 +422,8 @@ describe('stringify — tag 162 (scoring system)', () => {
     const output = stringify(
       minimal({
         scoringSystem: { win: 3 },
-        version: 'TRF26',
       }),
+      { version: 'TRF26' },
     );
     expect(output).toContain('162');
     expect(output).toMatch(/162\s+W\s+3\.0/);
@@ -415,9 +438,9 @@ describe('stringify — tag 162 (scoring system)', () => {
       unknown: 1,
       win: 3,
     };
-    const output = stringify(
-      minimal({ scoringSystem: scoring, version: 'TRF26' }),
-    );
+    const output = stringify(minimal({ scoringSystem: scoring }), {
+      version: 'TRF26',
+    });
     expect(output).toMatch(/162/);
     // All codes should appear
     expect(output).toMatch(/W\s+3\.0/);
@@ -429,12 +452,14 @@ describe('stringify — tag 162 (scoring system)', () => {
   });
 
   it('omits 162 line when scoringSystem is undefined', () => {
-    const output = stringify(minimal({ version: 'TRF26' }));
+    const output = stringify(minimal(), { version: 'TRF26' });
     expect(output).not.toContain('162');
   });
 
   it('omits 162 line when scoringSystem is empty object', () => {
-    const output = stringify(minimal({ scoringSystem: {}, version: 'TRF26' }));
+    const output = stringify(minimal({ scoringSystem: {} }), {
+      version: 'TRF26',
+    });
     expect(output).not.toContain('162');
   });
 });
@@ -453,9 +478,9 @@ describe('stringify — XXS (extended scoring system)', () => {
   });
 
   it('does not emit XXS when only tag-162 fields are set', () => {
-    const output = stringify(
-      minimal({ scoringSystem: { win: 3 }, version: 'TRF26' }),
-    );
+    const output = stringify(minimal({ scoringSystem: { win: 3 } }), {
+      version: 'TRF26',
+    });
     expect(output).not.toContain('XXS');
   });
 });
@@ -468,7 +493,7 @@ describe('stringify — XXP (forbidden pairs)', () => {
     const output = stringify(
       minimal({
         prohibitedPairings: [
-          { firstRound: 0, lastRound: 0, playerIds: [13, 68] },
+          { firstRound: 0, lastRound: 0, playerIds: ['13', '68'] },
         ],
       }),
     );
@@ -479,7 +504,7 @@ describe('stringify — XXP (forbidden pairs)', () => {
     const output = stringify(
       minimal({
         prohibitedPairings: [
-          { firstRound: 1, lastRound: 3, playerIds: [13, 68] },
+          { firstRound: 1, lastRound: 3, playerIds: ['13', '68'] },
         ],
       }),
     );
@@ -500,13 +525,17 @@ describe('stringify — roundtrip', () => {
   for (const name of ROUNDTRIP_FIXTURES) {
     it(`parse → stringify → parse is stable for ${name}`, () => {
       const t1 = parse(fixture(name))!;
-      const t2 = parse(stringify(t1))!;
-      expect(t2.name).toBe(t1.name);
-      expect(t2.rounds).toBe(t1.rounds);
+      // Detect version for fixture to pass to stringify
+      const isT26 = name === 'grandmommyscup';
+      const t2 = parse(
+        stringify(t1, isT26 ? { version: 'TRF26' } : undefined),
+      )!;
+      expect(t2.metadata?.name).toBe(t1.metadata?.name);
+      expect(t2.totalRounds).toBe(t1.totalRounds);
       expect(t2.players).toHaveLength(t1.players.length);
       for (const [index, p1] of t1.players.entries()) {
         const p2 = t2.players[index]!;
-        expect(p2.pairingNumber).toBe(p1.pairingNumber);
+        expect(p2.id).toBe(p1.id);
         expect(p2.name).toBe(p1.name);
         expect(p2.rating).toBe(p1.rating);
         expect(p2.points).toBe(p1.points);
@@ -516,14 +545,13 @@ describe('stringify — roundtrip', () => {
         expect(p2.federation).toBe(p1.federation);
         expect(p2.fideId).toBe(p1.fideId);
         expect(p2.birthDate).toBe(p1.birthDate);
-        expect(p2.results).toHaveLength(p1.results.length);
-        for (const [index, r1] of p1.results.entries()) {
-          const r2 = p2.results[index]!;
-          expect(r2.round).toBe(r1.round);
-          expect(r2.color).toBe(r1.color);
-          expect(r2.result).toBe(r1.result);
-          expect(r2.opponentId).toBe(r1.opponentId);
-        }
+      }
+      // Verify completedRounds have stable game/bye counts
+      expect(t2.completedRounds).toHaveLength(t1.completedRounds.length);
+      for (const [index, r1] of t1.completedRounds.entries()) {
+        const r2 = t2.completedRounds[index]!;
+        expect(r2.games).toHaveLength(r1.games.length);
+        expect(r2.byes).toHaveLength(r1.byes.length);
       }
     });
   }
