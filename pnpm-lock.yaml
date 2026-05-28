@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@echecs/tournament':
         specifier: ^3.2.0
-        version: 3.2.0
+        version: 3.3.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -111,8 +111,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@echecs/tournament@3.2.0':
-    resolution: {integrity: sha512-RTvE07+hW5pDMajqAXm4KiyuHIwjNUeu959FFbxjDaQ/KO68uzfmZmyKNYYpgKPVlq96C/AuHE5LadjG1RQ/lg==}
+  '@echecs/tournament@3.3.0':
+    resolution: {integrity: sha512-WLsH1HTTyyyB1ZjFSXGwGGyaAUSOuLpE5Zlx5H2DurBcdyOGAken14hHF+dHuVmMM0/1PM6ClfWuhLj0t8Pu5A==}
     engines: {node: '>=22'}
 
   '@emnapi/core@1.10.0':
@@ -1829,7 +1829,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@echecs/tournament@3.2.0': {}
+  '@echecs/tournament@3.3.0': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
