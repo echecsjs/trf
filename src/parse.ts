@@ -225,17 +225,12 @@ function parsePlayerLine(
     }
 
     const parts = entry.split(/\s+/);
-    const opponentRaw = parts[0];
-    const colorRaw = parts[1];
-    const resultRaw = parts[2];
-
-    if (
-      opponentRaw === undefined ||
-      colorRaw === undefined ||
-      resultRaw === undefined
-    ) {
+    if (parts.length < 3) {
       continue;
     }
+    const opponentRaw = parts[0] as string;
+    const colorRaw = parts[1] as string;
+    const resultRaw = parts[2] as string;
 
     const entryOffset = lineOffset + ROUND_RESULTS_OFFSET + index;
     const entryColumn = ROUND_RESULTS_OFFSET + index + 1;

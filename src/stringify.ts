@@ -253,7 +253,7 @@ function stringifyPlayerLine(
     // Trim trailing spaces only up to the rounds section; keep round entries intact
     const header = buf.slice(0, ROUND_RESULTS_OFFSET).join('').trimEnd();
     const rounds = buf.slice(ROUND_RESULTS_OFFSET).join('');
-    return header + ' '.repeat(ROUND_RESULTS_OFFSET - header.length) + rounds;
+    return header.padEnd(ROUND_RESULTS_OFFSET) + rounds;
   }
 
   return buf.join('').trimEnd();
