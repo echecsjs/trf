@@ -39,7 +39,7 @@ describe('parse — failure cases', () => {
   });
 
   it('strips BOM before parsing', () => {
-    const result = parse('\uFEFF012 My Tournament\nXXR 5\n');
+    const result = parse('\u{FEFF}012 My Tournament\nXXR 5\n');
     expect(result).not.toBeNull();
     expect(result?.metadata?.name).toBe('My Tournament');
   });
@@ -708,7 +708,9 @@ describe('parse — grandmommyscup fixture', () => {
   it('emits no warnings — all tags including 132 are now recognised', () => {
     const warnings: string[] = [];
     parse(fixture('grandmommyscup'), {
-      onWarning: (w) => warnings.push(w.message),
+      onWarning: (w) => {
+        warnings.push(w.message);
+      },
     });
     expect(warnings).toHaveLength(0);
   });
@@ -1542,7 +1544,7 @@ describe('parse — round dates (132)', () => {
     // Col 91 = round 1, col 101 = round 2, col 111 = round 3.
     // Build exactly: '132' + 88 spaces + 10 spaces (round1) + 10 spaces (round2) + '26/01/12'
     const prefix = '132' + ' '.repeat(88);
-    const input = `012 T\nXXR 3\n${prefix}          ${'          '}26/01/12\n`;
+    const input = `012 T\nXXR 3\n${prefix}                    26/01/12\n`;
     const dates = parse(input)?.metadata?.roundDates;
     expect(dates).toBeDefined();
     expect(dates).toContain('26/01/12');

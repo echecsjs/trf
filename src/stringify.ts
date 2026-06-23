@@ -30,6 +30,26 @@ interface ReconstructedResult {
   round: number;
 }
 
+function byeKindToResult(kind: string): string {
+  switch (kind) {
+    case 'full': {
+      return 'F';
+    }
+    case 'half': {
+      return 'H';
+    }
+    case 'pairing': {
+      return 'U';
+    }
+    case 'zero': {
+      return 'Z';
+    }
+    default: {
+      return 'Z';
+    }
+  }
+}
+
 function pad(value: string, length: number, align: 'left' | 'right'): string {
   return align === 'right' ? value.padStart(length) : value.padEnd(length);
 }
@@ -56,28 +76,7 @@ function reconstructPlayerResults(
     // Check for bye first
     const bye = round.byes.find((b) => b.player === player.id);
     if (bye !== undefined) {
-      let result: string;
-      switch (bye.kind) {
-        case 'full': {
-          result = 'F';
-          break;
-        }
-        case 'half': {
-          result = 'H';
-          break;
-        }
-        case 'pairing': {
-          result = 'U';
-          break;
-        }
-        case 'zero': {
-          result = 'Z';
-          break;
-        }
-        default: {
-          result = 'Z';
-        }
-      }
+      const result = byeKindToResult(bye.kind);
       results.push({
         color: '-',
         // eslint-disable-next-line unicorn/no-null
@@ -118,18 +117,18 @@ function reconstructPlayerResults(
       }
     } else {
       // Rated or unrated game
-      const rated = 'rated' in game ? (game.rated ?? true) : true;
+      const isRated = 'rated' in game ? (game.rated ?? true) : true;
       if (game.result === 'draw') {
-        result = rated ? '=' : 'D';
+        result = isRated ? '=' : 'D';
       } else if (
         (game.result === 'white' && isWhite) ||
         (game.result === 'black' && !isWhite)
       ) {
         // This player wins
-        result = rated ? '1' : 'W';
+        result = isRated ? '1' : 'W';
       } else {
         // This player loses
-        result = rated ? '0' : 'L';
+        result = isRated ? '0' : 'L';
       }
     }
 
@@ -269,7 +268,8 @@ export default function stringify(
   const meta = data.metadata;
 
   if (version === 'TRF26') {
-    for (const comment of meta?.comments ?? []) {
+    const comments = meta?.comments ?? [];
+    for (const comment of comments) {
       lines.push(`### ${comment}`);
     }
   }
@@ -313,7 +313,8 @@ export default function stringify(
   if (meta?.chiefArbiter !== undefined) {
     lines.push(`102 ${meta.chiefArbiter}`);
   }
-  for (const arbiter of meta?.deputyArbiters ?? []) {
+  const deputyArbiters = meta?.deputyArbiters ?? [];
+  for (const arbiter of deputyArbiters) {
     lines.push(`112 ${arbiter}`);
   }
   if (meta?.timeControl !== undefined) {
@@ -345,7 +346,8 @@ export default function stringify(
     lines.push(`XXZ ${data.withdrawnPlayers.join(' ')}`);
   }
 
-  for (const pa of data.playerAccelerations ?? []) {
+  const playerAccelerations = data.playerAccelerations ?? [];
+  for (const pa of playerAccelerations) {
     const pointsPart = pa.points
       .map((p) => pad(p.toFixed(1), 4, 'right'))
       .join(' ');
@@ -418,7 +420,7 @@ export default function stringify(
         .filter((c): c is [string, number] => c[1] !== undefined)
         .map(([code, pts]) => `${code}${pad(pts.toFixed(1), 4, 'right')}`);
       if (entries.length > 0) {
-        lines.push(`162  ${entries.join('    ')}`);
+        lines.push(`162  ${entries.join(' '.repeat(4))}`);
       }
     }
     if (meta?.startingRankMethod !== undefined) {
@@ -459,7 +461,8 @@ export default function stringify(
   // NRS records — emitted after all 001 records, TRF26 only
   if (version === 'TRF26') {
     for (const player of data.players) {
-      for (const nrs of player.nationalRatings ?? []) {
+      const nationalRatings = player.nationalRatings ?? [];
+      for (const nrs of nationalRatings) {
         const buf: string[] = Array.from({ length: COL_RANK + 5 }, () => ' ');
         // Federation code as record type (3 chars)
         writeAt(buf, 0, nrs.federation.slice(0, 3));
@@ -512,7 +515,8 @@ export default function stringify(
 
   // 250 — Accelerated rounds (TRF26 only)
   if (version === 'TRF26') {
-    for (const accumulator of data.acceleratedRounds ?? []) {
+    const acceleratedRounds = data.acceleratedRounds ?? [];
+    for (const accumulator of acceleratedRounds) {
       lines.push(
         `250 ${accumulator.matchPoints.toFixed(1).padStart(4)} ${accumulator.gamePoints.toFixed(1).padStart(4)} ${String(accumulator.firstRound).padStart(3)} ${String(accumulator.lastRound).padStart(3)} ${String(Number(accumulator.firstPlayerId)).padStart(4)} ${String(Number(accumulator.lastPlayerId)).padStart(4)}`,
       );
@@ -520,7 +524,8 @@ export default function stringify(
   }
 
   // XXP — Forbidden pairs (all versions; round sentinel 0/0)
-  for (const pp of data.prohibitedPairings ?? []) {
+  const prohibitedPairings = data.prohibitedPairings ?? [];
+  for (const pp of prohibitedPairings) {
     if (pp.firstRound === 0 && pp.lastRound === 0) {
       const idPart = pp.playerIds.join(' ');
       lines.push(`XXP ${idPart}`);
@@ -529,7 +534,7 @@ export default function stringify(
 
   // 260 — Prohibited pairings (TRF26 only)
   if (version === 'TRF26') {
-    for (const pp of data.prohibitedPairings ?? []) {
+    for (const pp of prohibitedPairings) {
       if (pp.firstRound !== 0 || pp.lastRound !== 0) {
         const idPart = pp.playerIds
           .map((id) => String(Number(id)).padStart(4))
@@ -543,8 +548,10 @@ export default function stringify(
 
   // 299 — Abnormal points (TRF26 only) — from options
   if (version === 'TRF26') {
-    for (const ab of options?.abnormalPoints ?? []) {
-      const roundPart = ab.round === 0 ? '   ' : String(ab.round).padStart(3);
+    const abnormalPoints = options?.abnormalPoints ?? [];
+    for (const ab of abnormalPoints) {
+      const roundPart =
+        ab.round === 0 ? ' '.repeat(3) : String(ab.round).padStart(3);
       const idPart =
         ab.playerIds.length === 0
           ? ''
@@ -558,7 +565,8 @@ export default function stringify(
 
   // 300 — Out-of-order lineups (TRF26 only) — from options
   if (version === 'TRF26') {
-    for (const ool of options?.outOfOrderLineups ?? []) {
+    const outOfOrderLineups = options?.outOfOrderLineups ?? [];
+    for (const ool of outOfOrderLineups) {
       const idPart = ool.playerIds
         .map((id) => (id === null ? '0000' : String(Number(id)).padStart(4)))
         .join(' ');
@@ -581,7 +589,8 @@ export default function stringify(
 
   // 330 — Forfeited matches (TRF26 only) — from options
   if (version === 'TRF26') {
-    for (const fm of options?.forfeitedMatches ?? []) {
+    const forfeitedMatches = options?.forfeitedMatches ?? [];
+    for (const fm of forfeitedMatches) {
       lines.push(
         `330 ${fm.type} ${String(Number(fm.round)).padStart(3)} ${String(Number(fm.whiteTeamId)).padStart(3)} ${String(Number(fm.blackTeamId)).padStart(3)}`,
       );
@@ -590,12 +599,14 @@ export default function stringify(
 
   // Team records (310) — TRF26 only
   if (version === 'TRF26') {
-    for (const team of data.teams ?? []) {
+    const teams = data.teams ?? [];
+    for (const team of teams) {
       const buf: string[] = Array.from({ length: 72 }, () => ' ');
       buf[0] = '3';
       buf[1] = '1';
       buf[2] = '0';
-      writeAt(buf, 4, pad(String(Number(team.id)), 3, 'right'));
+      const teamIdString = String(Number(team.id));
+      writeAt(buf, 4, pad(teamIdString, 3, 'right'));
       writeAt(buf, 8, pad(team.name.slice(0, 32), 32, 'left'));
       if (team.nickname !== undefined) {
         writeAt(buf, 41, pad(team.nickname.slice(0, 5), 5, 'left'));
@@ -608,7 +619,8 @@ export default function stringify(
         while (buf.length < pos + 4) {
           buf.push(' ');
         }
-        writeAt(buf, pos, pad(String(Number(id)), 4, 'right'));
+        const idString = String(Number(id));
+        writeAt(buf, pos, pad(idString, 4, 'right'));
       }
       lines.push(buf.join('').trimEnd());
     }
@@ -616,11 +628,13 @@ export default function stringify(
 
   // 801/802 — Team round-by-round results (TRF26 only) — from options
   if (version === 'TRF26') {
-    for (const record of options?.teamRoundResults ?? []) {
+    const teamRoundResults = options?.teamRoundResults ?? [];
+    for (const record of teamRoundResults) {
       if (record.tag === '801') {
         const buf801: string[] = Array.from({ length: 22 }, () => ' ');
         writeAt(buf801, 0, '801');
-        writeAt(buf801, 3, pad(String(Number(record.teamId)), 4, 'right'));
+        const teamIdString801 = String(Number(record.teamId));
+        writeAt(buf801, 3, pad(teamIdString801, 4, 'right'));
         if (record.nickname !== undefined) {
           writeAt(buf801, 7, pad(record.nickname.slice(0, 5), 5, 'left'));
         }
@@ -652,7 +666,8 @@ export default function stringify(
         // 802
         const buf802: string[] = Array.from({ length: 28 }, () => ' ');
         writeAt(buf802, 0, '802');
-        writeAt(buf802, 4, pad(String(Number(record.teamId)), 3, 'right'));
+        const teamIdString802 = String(Number(record.teamId));
+        writeAt(buf802, 4, pad(teamIdString802, 3, 'right'));
         if (record.nickname !== undefined) {
           writeAt(buf802, 8, pad(record.nickname.slice(0, 5), 5, 'left'));
         }
