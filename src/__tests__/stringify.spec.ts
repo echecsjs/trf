@@ -144,14 +144,14 @@ describe('stringify — player lines', () => {
     const line = stringify(minimal({ players: [minimalPlayer({ sex: 'm' })] }))
       .split('\n')
       .find((l) => l.startsWith('001'))!;
-    expect(line[9]).toBe('m');
+    expect(line.at(9)).toBe('m');
   });
 
   it('writes blank at col 9 when sex is absent', () => {
     const line = stringify(minimal({ players: [minimalPlayer()] }))
       .split('\n')
       .find((l) => l.startsWith('001'))!;
-    expect(line[9]).toBe(' ');
+    expect(line.at(9)).toBe(' ');
   });
 
   it('writes title left-aligned in cols 10-13', () => {
