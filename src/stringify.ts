@@ -359,13 +359,12 @@ export default function stringify(
   }
 
   {
-    const xxcParts: string[] = [];
-    if (options?.useRankingId === true) {
-      xxcParts.push('rank');
-    }
-    if (version !== 'TRF26' && options?.initialColour !== undefined) {
-      xxcParts.push(options.initialColour === 'W' ? 'white1' : 'black1');
-    }
+    const xxcParts: string[] = [
+      ...(options?.useRankingId === true ? ['rank'] : []),
+      ...(version !== 'TRF26' && options?.initialColour !== undefined
+        ? [options.initialColour === 'W' ? 'white1' : 'black1']
+        : []),
+    ];
     if (xxcParts.length > 0) {
       lines.push(`XXC ${xxcParts.join(' ')}`);
     }
@@ -391,10 +390,14 @@ export default function stringify(
         (c): c is [string, number] => c[1] !== undefined,
       );
       if (xxsColourEntries.length > 0) {
-        const allEntries: [string, number][] = [...xxsColourEntries];
-        if (s.pairingAllocatedBye !== undefined) {
-          allEntries.push(['PAB', s.pairingAllocatedBye]);
-        }
+        const pabEntries: [string, number][] =
+          s.pairingAllocatedBye === undefined
+            ? []
+            : [['PAB', s.pairingAllocatedBye]];
+        const allEntries: [string, number][] = [
+          ...xxsColourEntries,
+          ...pabEntries,
+        ];
         const parts = allEntries.map(
           ([code, pts]) => `${code}=${pts.toFixed(1)}`,
         );

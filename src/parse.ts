@@ -498,19 +498,18 @@ function parsePlayerLine(
 
   const player: PlayerWithRaw = {
     _rawRounds: rawRounds,
+    ...(birthDate !== undefined && { birthDate }),
+    ...(federation !== undefined && { federation }),
+    ...(fideId !== undefined && { fideId }),
     id: String(pairingNumber),
+    ...(name.length > 0 && { name }),
     points,
     rank,
+    ...(rating !== undefined && { rating }),
+    ...(sex !== undefined && { sex }),
     startingRank: pairingNumber,
+    ...(title !== undefined && { title }),
   };
-
-  if (birthDate !== undefined) player.birthDate = birthDate;
-  if (federation !== undefined) player.federation = federation;
-  if (fideId !== undefined) player.fideId = fideId;
-  if (name.length > 0) player.name = name;
-  if (rating !== undefined) player.rating = rating;
-  if (sex !== undefined) player.sex = sex;
-  if (title !== undefined) player.title = title;
 
   return player;
 }
@@ -1071,12 +1070,10 @@ function processTag(
           id: String(pairingNumber),
           matchPoints,
           name,
+          ...(nickname !== undefined && { nickname }),
           playerIds,
           rank,
         };
-        if (nickname !== undefined) {
-          team.nickname = nickname;
-        }
         tournament.teams ??= [];
         tournament.teams.push(team);
       }
@@ -1111,15 +1108,15 @@ function processTag(
                 .slice(COL_FIDE_ID, COL_BIRTH_DATE - 1)
                 .trim();
               const nrs: NationalRating = {
+                ...(classificationRaw.length > 0 && {
+                  classification: classificationRaw,
+                }),
                 federation: tag,
+                ...(nationalIdRaw.length > 0 && {
+                  nationalId: nationalIdRaw,
+                }),
                 rating,
               };
-              if (classificationRaw.length > 0) {
-                nrs.classification = classificationRaw;
-              }
-              if (nationalIdRaw.length > 0) {
-                nrs.nationalId = nationalIdRaw;
-              }
               player.nationalRatings.push(nrs);
             }
           }
