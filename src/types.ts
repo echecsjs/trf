@@ -75,7 +75,9 @@ interface TeamRoundResult802 {
   type?: 'FPB' | 'HPB' | 'PAB' | 'ZPB';
 }
 
-/** TRF-specific bye record (tag 240) — distinct from tournament's per-round Bye. */
+/**
+TRF-specific bye record (tag 240) — distinct from tournament's per-round Bye.
+*/
 interface TrfBye {
   playerIds: string[];
   round: number;
