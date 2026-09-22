@@ -705,14 +705,19 @@ describe('parse — grandmommyscup fixture', () => {
 
   // --- Warning behaviour ---
 
-  it('emits no warnings — all tags including 132 are now recognised', () => {
+  it('emits no warnings besides duplicate-bye notices — all tags including 132 are now recognised', () => {
     const warnings: string[] = [];
     parse(fixture('grandmommyscup'), {
       onWarning: (w) => {
         warnings.push(w.message);
       },
     });
-    expect(warnings).toHaveLength(0);
+    // The fixture encodes 5 byes both as player-line codes and 240 records;
+    // the redundant 240 records legitimately warn. Anything else must not.
+    expect(warnings.filter((m) => !m.includes('duplicate bye'))).toHaveLength(
+      0,
+    );
+    expect(warnings.filter((m) => m.includes('duplicate bye'))).toHaveLength(5);
   });
 
   it('parses 14 round dates from 132 tag', () => {
@@ -1317,11 +1322,97 @@ describe('stringify — TRF26 features', () => {
 // ---------------------------------------------------------------------------
 // Bye records (240)
 // ---------------------------------------------------------------------------
+
+/**
+Builds a valid 001 player line: header is 91 columns, results start at 91.
+*/
+function tag240PlayerLine(
+  number: string,
+  points: string,
+  rank: string,
+  results = '',
+): string {
+  return (
+    '001 ' +
+    `   ${number}`.padStart(5) +
+    ' ' +
+    ' '.repeat(4) +
+    'Test0001 Player0001'.padEnd(34) +
+    '1700' +
+    ' '.repeat(28) +
+    points.padEnd(3) +
+    ' ' +
+    rank.padStart(7) +
+    results
+  );
+}
+
 describe('parse — bye records (240)', () => {
-  it('ignores bye records from 240 (TRF-specific, not on TournamentData)', () => {
-    const BYE_INPUT = '### trf26\n012 T\nXXR 3\n240 H 003  026  047\n';
-    // byes (tag 240) are dropped from parse output; no assertion needed beyond no-throw
-    expect(parse(BYE_INPUT)).not.toBeNull();
+  it('maps 240 byes into completedRounds byes', () => {
+    const BYE_INPUT =
+      '### trf26\n012 T\nXXR 3\n' +
+      `${tag240PlayerLine('1', '1.0', '1')}\n` +
+      `${tag240PlayerLine('2', '0.0', '2')}\n` +
+      '240 H 003  001  002\n';
+    const tournament = parse(BYE_INPUT);
+    expect(tournament).not.toBeNull();
+    expect(tournament?.completedRounds[2]?.byes).toEqual([
+      { kind: 'half', player: '1' },
+      { kind: 'half', player: '2' },
+    ]);
+  });
+
+  it('extends completedRounds when the 240 round is beyond played rounds', () => {
+    const INPUT =
+      '### trf26\n012 T\nXXR 3\n' +
+      `${tag240PlayerLine('1', '1.0', '1')}\n` +
+      '240 F 003  001\n';
+    const tournament = parse(INPUT);
+    expect(tournament?.completedRounds).toHaveLength(3);
+    expect(tournament?.completedRounds[2]?.byes).toEqual([
+      { kind: 'full', player: '1' },
+    ]);
+  });
+
+  it('warns and skips duplicate byes (player-line code and 240 record)', () => {
+    const warnings: string[] = [];
+    const INPUT =
+      '### trf26\n012 T\nXXR 1\n' +
+      `${tag240PlayerLine('1', '1.0', '1', '0000 - H  ')}\n` +
+      '240 H 001  001\n';
+    const tournament = parse(INPUT, {
+      onWarning: (w) => {
+        warnings.push(w.message);
+      },
+    });
+    expect(tournament?.completedRounds[0]?.byes).toEqual([
+      { kind: 'half', player: '1' },
+    ]);
+    expect(warnings.some((m) => m.includes('duplicate bye'))).toBe(true);
+  });
+
+  it('warns and skips unknown player ids in 240 records', () => {
+    const warnings: string[] = [];
+    const INPUT = '### trf26\n012 T\nXXR 1\n240 Z 001  099\n';
+    const tournament = parse(INPUT, {
+      onWarning: (w) => {
+        warnings.push(w.message);
+      },
+    });
+    expect(tournament?.completedRounds[0]?.byes).toEqual([]);
+    expect(warnings.some((m) => m.includes('unknown player: 99'))).toBe(true);
+  });
+
+  it('warns and skips invalid bye type in 240 records', () => {
+    const warnings: string[] = [];
+    const INPUT = '### trf26\n012 T\nXXR 1\n240 X 001  001\n';
+    const tournament = parse(INPUT, {
+      onWarning: (w) => {
+        warnings.push(w.message);
+      },
+    });
+    expect(tournament?.completedRounds[0]?.byes).toEqual([]);
+    expect(warnings.length).toBeGreaterThan(0);
   });
 });
 
