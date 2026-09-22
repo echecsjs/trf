@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.1.0 — 2026-09-21
+
+### Added
+
+- `parse()` maps TRF26 tag-240 bye records into `completedRounds[].byes`
+  (F→full, H→half, Z→zero), warning on duplicates and unknown player ids instead
+  of dropping them.
+- `stringify()` emits tag-240 bye records in TRF26 mode (grouped by round and
+  kind, max 3 ids per record); player-line bye codes are no longer written in
+  TRF26 mode.
+
+### Changed
+
+- TRF16 parse and stringify behavior is unchanged.
+
 ## 4.0.0 — 2026-05-25
 
 ### Changed
