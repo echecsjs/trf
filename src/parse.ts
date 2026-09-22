@@ -23,6 +23,7 @@ import type {
   ResultCode,
   ScoringSystem,
   Team,
+  TrfBye,
 } from './types.js';
 import type {
   Bye,
@@ -121,6 +122,12 @@ interface RawRoundEntry {
 // Internal player representation with raw round entries (before CompletedRound assembly).
 interface PlayerWithRaw extends Player {
   _rawRounds: RawRoundEntry[];
+}
+
+// Internal tournament representation carrying raw tag-240 bye records
+// (stripped before parse() returns, like PlayerWithRaw._rawRounds).
+interface TournamentWithTrfByes extends TournamentData {
+  trfByes240?: TrfBye[];
 }
 
 // ---------------------------------------------------------------------------
@@ -710,6 +717,83 @@ function buildCompletedRounds(
   return completedRounds;
 }
 
+const TAG240_TYPE_TO_KIND = {
+  F: 'full',
+  H: 'half',
+  Z: 'zero',
+} as const;
+
+/**
+ * Merges raw tag-240 bye records into completedRounds[].byes. Extends
+ * completedRounds when a record references a round beyond the played rounds;
+ * warns and skips records with an invalid round, an unknown player id, or a
+ * player that already has a bye in that round.
+ */
+function mergeTag240Byes(
+  tournament: TournamentData,
+  trfByes: TrfBye[],
+  onWarning?: (warning: ParseWarning) => void,
+): void {
+  if (trfByes.length === 0) {
+    return;
+  }
+
+  for (const record of trfByes) {
+    mergeTag240Record(tournament, record, onWarning);
+  }
+}
+
+function mergeTag240Record(
+  tournament: TournamentData,
+  record: TrfBye,
+  onWarning?: (warning: ParseWarning) => void,
+): void {
+  const roundIndex = record.round - 1;
+  if (roundIndex < 0) {
+    onWarning?.(
+      makeWarning(`240 record has invalid round: ${record.round}`, 0, 0, 0),
+    );
+    return;
+  }
+
+  while (tournament.completedRounds.length <= roundIndex) {
+    tournament.completedRounds.push({ byes: [], games: [] });
+  }
+  const round = tournament.completedRounds[roundIndex];
+  if (!round) {
+    return;
+  }
+
+  for (const playerId of record.playerIds) {
+    if (tournament.players.every((p) => p.id !== playerId)) {
+      onWarning?.(
+        makeWarning(
+          `240 record references unknown player: ${playerId}`,
+          0,
+          0,
+          0,
+        ),
+      );
+      continue;
+    }
+    if (round.byes.some((b) => b.player === playerId)) {
+      onWarning?.(
+        makeWarning(
+          `duplicate bye for player ${playerId} in round ${record.round}`,
+          0,
+          0,
+          0,
+        ),
+      );
+      continue;
+    }
+    round.byes.push({
+      kind: TAG240_TYPE_TO_KIND[record.type],
+      player: playerId,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // processTag() — dispatch a single TRF line by its 3-char tag
 // ---------------------------------------------------------------------------
@@ -965,7 +1049,37 @@ function processTag(
       break;
     }
     case '240': {
-      // byes (tag 240) are TRF-specific; not stored on TournamentData
+      const type240 = line.slice(4, 5);
+      if (type240 !== 'F' && type240 !== 'H' && type240 !== 'Z') {
+        options?.onWarning?.(
+          makeWarning(
+            `Unknown 240 bye type "${type240}"`,
+            lineNumber,
+            5,
+            lineOffset + 4,
+          ),
+        );
+        break;
+      }
+      const round240 = Number(line.slice(6, 9).trim()) || 0;
+      const playerIds240: string[] = [];
+      for (const [start, end] of [
+        [10, 14],
+        [15, 19],
+        [20, 24],
+      ] as const) {
+        const id = Number(line.slice(start, end).trim());
+        if (id > 0) {
+          playerIds240.push(String(id));
+        }
+      }
+      const tournamentWithByes = tournament as TournamentWithTrfByes;
+      tournamentWithByes.trfByes240 ??= [];
+      tournamentWithByes.trfByes240.push({
+        playerIds: playerIds240,
+        round: round240,
+        type: type240,
+      });
       break;
     }
     case '250': {
@@ -1179,6 +1293,15 @@ export default function parse(
     tournament.totalRounds,
     options?.onWarning,
   );
+
+  // Merge raw tag-240 bye records into the completed rounds
+  const tournamentWithByes = tournament as TournamentWithTrfByes;
+  mergeTag240Byes(
+    tournament,
+    tournamentWithByes.trfByes240 ?? [],
+    options?.onWarning,
+  );
+  delete tournamentWithByes.trfByes240;
 
   // Strip internal _rawRounds from players before returning
   for (const player of tournament.players as PlayerWithRaw[]) {
