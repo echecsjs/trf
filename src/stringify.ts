@@ -67,6 +67,7 @@ function writeAt(buffer: string[], col: number, value: string): void {
 function reconstructPlayerResults(
   player: Player,
   data: TournamentData,
+  shouldWriteInlineByes: boolean,
 ): ReconstructedResult[] {
   const results: ReconstructedResult[] = [];
 
@@ -76,6 +77,10 @@ function reconstructPlayerResults(
     // Check for bye first
     const bye = round.byes.find((b) => b.player === player.id);
     if (bye !== undefined) {
+      // TRF26 carries byes as 240 records instead of player-line codes
+      if (!shouldWriteInlineByes) {
+        continue;
+      }
       const result = byeKindToResult(bye.kind);
       results.push({
         color: '-',
@@ -232,10 +237,7 @@ function stringifyPlayerLine(
   writeAt(buffer, COL_RANK, pad(String(player.rank), 5, 'right'));
 
   // Round results — reconstruct from completedRounds
-  const results = reconstructPlayerResults(player, data);
-
-  // version param is reserved for future use (e.g. TRF26-specific result codes)
-  void version;
+  const results = reconstructPlayerResults(player, data, version !== 'TRF26');
 
   if (results.length > 0) {
     for (const result of results) {
@@ -519,9 +521,38 @@ export default function stringify(
     }
   }
 
-  // 240 — Bye records (TRF26 only) — derived from completedRounds byes
-  // (tag 240 byes are not on TournamentData; omitted in stringify unless
-  //  the caller provides them via options in a future extension)
+  // 240 — Bye records (TRF26 only) — derived from completedRounds byes,
+  // grouped by round and kind, max 3 player ids per record
+  if (version === 'TRF26') {
+    const groups = new Map<
+      string,
+      { kind: string; playerIds: string[]; round: number }
+    >();
+    for (const [roundIndex, round] of data.completedRounds.entries()) {
+      for (const bye of round.byes) {
+        const key = `${roundIndex + 1}:${bye.kind}`;
+        const group = groups.get(key) ?? {
+          kind: bye.kind,
+          playerIds: [],
+          round: roundIndex + 1,
+        };
+        group.playerIds.push(bye.player);
+        groups.set(key, group);
+      }
+    }
+    for (const group of groups.values()) {
+      const type = byeKindToResult(group.kind);
+      for (let index = 0; index < group.playerIds.length; index += 3) {
+        const chunk = group.playerIds.slice(index, index + 3);
+        const ids = chunk
+          .map((id) => Number(id).toString().padStart(3, '0').padStart(4))
+          .join(' ');
+        lines.push(
+          `240 ${type} ${group.round.toString().padStart(3, '0')} ${ids}`,
+        );
+      }
+    }
+  }
 
   // 250 — Accelerated rounds (TRF26 only)
   if (version === 'TRF26') {
