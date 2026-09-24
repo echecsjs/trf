@@ -122,7 +122,7 @@ function reconstructPlayerResults(
       }
     } else {
       // Rated or unrated game
-      const isRated = 'rated' in game ? (game.rated ?? true) : true;
+      const isRated = !('rated' in game) || (game.rated ?? true);
       if (game.result === 'draw') {
         result = isRated ? '=' : 'D';
       } else if (
