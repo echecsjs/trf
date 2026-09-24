@@ -291,7 +291,7 @@ describe('parse — round results', () => {
     const result = parse(fixture('issue_7'));
     const drawGame = result?.completedRounds
       .flatMap((r) => r.games)
-      .find((g) => g.result === 'draw' && ('rated' in g ? g.rated : true));
+      .find((g) => g.result === 'draw' && (!('rated' in g) || g.rated));
     expect(drawGame).toBeDefined();
   });
 
