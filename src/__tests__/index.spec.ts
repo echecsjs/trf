@@ -1251,7 +1251,7 @@ describe('stringify — TRF26 features', () => {
     expect(stringify(t)).not.toContain('###');
   });
 
-  it('emits 142 in addition to XXR when version is TRF26', () => {
+  it('emits 142 instead of XXR when version is TRF26', () => {
     const t: TournamentData = {
       completedRounds: [],
       players: [],
@@ -1259,7 +1259,7 @@ describe('stringify — TRF26 features', () => {
     };
     const out = stringify(t, { version: 'TRF26' });
     expect(out).toContain('142 9');
-    expect(out).toContain('XXR 9');
+    expect(out).not.toContain('XXR 9');
   });
 
   it('does not emit 142 for TRF16', () => {
@@ -1565,9 +1565,78 @@ describe('stringify — bye records (240)', () => {
     expect(records[1]).toBe('240 Z 001  004');
   });
 
-  it('does not repeat byes as player-line codes in TRF26', () => {
-    const output = stringify(T_WITH_BYES, { version: 'TRF26' });
-    expect(output).not.toMatch(/0000 - [FHZA]/);
+  it('does not repeat point byes as player-line codes in TRF26, but keeps pairing byes inline', () => {
+    const t: TournamentData = {
+      completedRounds: [
+        {
+          byes: [
+            { kind: 'half', player: '1' },
+            { kind: 'pairing', player: '2' },
+          ],
+          games: [],
+        },
+      ],
+      players: [
+        {
+          id: '1',
+          name: 'Player One',
+          points: 0.5,
+          rank: 1,
+        },
+        {
+          id: '2',
+          name: 'Player Two',
+          points: 1,
+          rank: 2,
+        },
+      ],
+      totalRounds: 1,
+    };
+    const output = stringify(t, { version: 'TRF26' });
+    // half-point bye → 240 record only
+    expect(output).toMatch(/^240 H 001 {2}001$/m);
+    expect(output).not.toMatch(/^240 U /m);
+    // pairing bye → player-line U code (tag 240 has no pairing type)
+    expect(output).toMatch(/0000 - U/);
+  });
+
+  it('round-trips pairing byes through TRF26 as player-line U codes', () => {
+    const t: TournamentData = {
+      completedRounds: [
+        {
+          byes: [{ kind: 'pairing', player: '1' }],
+          games: [],
+        },
+      ],
+      players: [
+        {
+          id: '1',
+          name: 'Player One',
+          points: 1,
+          rank: 1,
+        },
+      ],
+      totalRounds: 1,
+    };
+    const output = stringify(t, { version: 'TRF26' });
+    const parsed = parse(output);
+    expect(parsed?.completedRounds[0]?.byes).toEqual([
+      { kind: 'pairing', player: '1' },
+    ]);
+  });
+
+  it('emits 142 but not XXR in TRF26, and XXR but not 142 in TRF16', () => {
+    const t: TournamentData = {
+      completedRounds: [],
+      players: [],
+      totalRounds: 3,
+    };
+    const trf26 = stringify(t, { version: 'TRF26' });
+    expect(trf26).toMatch(/^142 3$/m);
+    expect(trf26).not.toMatch(/^XXR /m);
+    const trf16 = stringify(t, { version: 'TRF16' });
+    expect(trf16).toMatch(/^XXR 3$/m);
+    expect(trf16).not.toMatch(/^142 /m);
   });
 
   it('keeps player-line bye codes in TRF16 and emits no 240 records', () => {
