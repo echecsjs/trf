@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.1.1 — 2026-09-25
+
+### Fixed
+
+- `stringify()` in TRF26 mode no longer writes pairing-allocated byes as `240 U`
+  records — tag 240 defines only `F`/`H`/`Z` (point byes), so pairing byes
+  vanished on TRF26 round-trips. They are written as player-line `U` codes,
+  which `parse()` maps back to `pairing`.
+- `stringify()` in TRF26 mode emits `142` instead of `XXR` (both were written
+  before); TRF16 mode is unchanged.
+
 ## 4.1.0 — 2026-09-21
 
 ### Added
