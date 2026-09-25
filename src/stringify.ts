@@ -67,7 +67,7 @@ function writeAt(buffer: string[], col: number, value: string): void {
 function reconstructPlayerResults(
   player: Player,
   data: TournamentData,
-  shouldWriteInlineByes: boolean,
+  version: Version,
 ): ReconstructedResult[] {
   const results: ReconstructedResult[] = [];
 
@@ -77,8 +77,9 @@ function reconstructPlayerResults(
     // Check for bye first
     const bye = round.byes.find((b) => b.player === player.id);
     if (bye !== undefined) {
-      // TRF26 carries byes as 240 records instead of player-line codes
-      if (!shouldWriteInlineByes) {
+      // TRF26 carries point byes (full/half/zero) as 240 records; pairing
+      // byes stay as player-line U codes (tag 240 has no pairing type)
+      if (version === 'TRF26' && bye.kind !== 'pairing') {
         continue;
       }
       const result = byeKindToResult(bye.kind);
@@ -237,7 +238,7 @@ function stringifyPlayerLine(
   writeAt(buffer, COL_RANK, pad(String(player.rank), 5, 'right'));
 
   // Round results — reconstruct from completedRounds
-  const results = reconstructPlayerResults(player, data, version !== 'TRF26');
+  const results = reconstructPlayerResults(player, data, version);
 
   if (results.length > 0) {
     for (const result of results) {
@@ -344,7 +345,7 @@ export default function stringify(
     }
     lines.push(buffer.join('').trimEnd());
   }
-  if (data.totalRounds > 0) {
+  if (version !== 'TRF26' && data.totalRounds > 0) {
     lines.push(`XXR ${data.totalRounds}`);
   }
 
@@ -530,6 +531,10 @@ export default function stringify(
     >();
     for (const [roundIndex, round] of data.completedRounds.entries()) {
       for (const bye of round.byes) {
+        // pairing byes are written as player-line U codes (no 240 type)
+        if (bye.kind === 'pairing') {
+          continue;
+        }
         const key = `${roundIndex + 1}:${bye.kind}`;
         const group = groups.get(key) ?? {
           kind: bye.kind,
