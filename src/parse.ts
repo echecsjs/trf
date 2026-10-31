@@ -479,7 +479,7 @@ function parsePlayerLine(
       continue;
     }
 
-    if (colorRaw !== 'w' && colorRaw !== 'b' && colorRaw !== '-') {
+    if (!['w', 'b', '-'].includes(colorRaw)) {
       onWarning?.(
         makeWarning(
           `Invalid color code "${colorRaw}" in round ${Math.floor(index / ROUND_ENTRY_LENGTH) + 1}`,
@@ -724,11 +724,11 @@ const TAG240_TYPE_TO_KIND = {
 } as const;
 
 /**
- * Merges raw tag-240 bye records into completedRounds[].byes. Extends
- * completedRounds when a record references a round beyond the played rounds;
- * warns and skips records with an invalid round, an unknown player id, or a
- * player that already has a bye in that round.
- */
+Merges raw tag-240 bye records into completedRounds[].byes. Extends
+completedRounds when a record references a round beyond the played rounds;
+warns and skips records with an invalid round, an unknown player id, or a
+player that already has a bye in that round.
+*/
 function mergeTag240Byes(
   tournament: TournamentData,
   trfByes: TrfBye[],
@@ -1049,8 +1049,10 @@ function processTag(
       break;
     }
     case '240': {
+      const isKnownByeType = (value: string): value is 'F' | 'H' | 'Z' =>
+        ['F', 'H', 'Z'].includes(value);
       const type240 = line.slice(4, 5);
-      if (type240 !== 'F' && type240 !== 'H' && type240 !== 'Z') {
+      if (!isKnownByeType(type240)) {
         options?.onWarning?.(
           makeWarning(
             `Unknown 240 bye type "${type240}"`,
